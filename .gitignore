@@ -1,0 +1,39 @@
+# --- Environment / secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Python / backend ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/.env
+*.db
+*.sqlite3
+
+# --- Node / frontend ---
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
