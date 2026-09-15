@@ -31,3 +31,17 @@ class ConflictError(SkillSprintError):
 class ValidationError(SkillSprintError):
     status_code = 422
     error_code = "VALIDATION_ERROR"
+
+
+class AuthError(SkillSprintError):
+    """Authentication failures (401)."""
+
+    status_code = 401
+    error_code = "UNAUTHORIZED"
+
+
+class ForbiddenError(SkillSprintError):
+    """Authorization failures (403): authenticated but not allowed."""
+
+    status_code = 403
+    error_code = "FORBIDDEN"

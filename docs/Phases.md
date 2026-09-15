@@ -2119,7 +2119,7 @@ This loop is the central functional philosophy of SkillSprint.
 | 0     | Planning & Documentation | Completed |
 | 1     | Development Environment  | Completed |
 | 2     | Database & Backend       | Completed |
-| 3     | Authentication & RBAC    | Planned |
+| 3     | Authentication & RBAC    | Completed |
 | 4     | Question Management      | Planned |
 | 5     | Student Learning         | Planned |
 | 6     | Assessments              | Planned |

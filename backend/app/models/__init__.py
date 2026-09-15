@@ -18,6 +18,7 @@ from app.models.gamification import Badge, StudentBadge, XPTransaction
 from app.models.leaderboard import Leaderboard, LeaderboardEntry
 from app.models.coding import CodingProblem, CodeSubmission, TestCase
 from app.models.activity import ActivityEvent
+from app.models.practice import PracticeAnswer, PracticeSession
 
 __all__ = [
     "Base",
@@ -50,4 +51,6 @@ __all__ = [
     "TestCase",
     "CodeSubmission",
     "ActivityEvent",
+    "PracticeSession",
+    "PracticeAnswer",
 ]
