@@ -1,7 +1,11 @@
-"""missions and student_missions (docs/Database_design_docs.md §22–23)."""
-from datetime import datetime
+"""missions and student_missions (docs/Database_design_docs.md §22–23).
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+StudentMission rows are DATE-SCOPED for DAILY missions: one row per
+(student, mission, assigned_date) so missions genuinely reset each day.
+"""
+from datetime import date, datetime
+
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import BIGINT_PK, Base
@@ -25,12 +29,17 @@ class Mission(Base):
 
 class StudentMission(Base):
     __tablename__ = "student_missions"
+    __table_args__ = (
+        UniqueConstraint("student_id", "mission_id", "assigned_date", name="uq_student_mission_day"),
+    )
 
     id: Mapped[int] = mapped_column(BIGINT_PK, primary_key=True, autoincrement=True)
     student_id: Mapped[int] = mapped_column(
         ForeignKey("student_profiles.id", ondelete="CASCADE"), nullable=False, index=True
     )
     mission_id: Mapped[int] = mapped_column(ForeignKey("missions.id"), nullable=False, index=True)
+    # The day this assignment belongs to (UTC). DAILY missions reset by date.
+    assigned_date: Mapped[date | None] = mapped_column(Date, index=True)
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="NOT_STARTED")
     started_at: Mapped[datetime | None] = mapped_column(DateTime)

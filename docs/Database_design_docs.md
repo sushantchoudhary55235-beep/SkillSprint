@@ -1546,4 +1546,27 @@ Did their performance improve?
 
 This allows SkillSprint to function as a **personalized and gamified placement-readiness platform**, rather than only being a question-and-answer application.
 
+## Table: `ai_answer_logs`
+<arg_value><b88a6f17>Phase 15C. Records ONLY the outcome of answering an AI (Gemini)-generatedquestion — the question text itself is never persisted (deliberate designdecision). Written by `POST /api/ai/questions/evaluate`.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | BIGINT PK | |
+| student_id | FK → student_profiles.id, CASCADE | indexed |
+| topic_id | FK → topics.id, nullable | NULL for free-form AI topics |
+| topic_name | VARCHAR(100), nullable | snapshot for unpersisted topics |
+| difficulty | VARCHAR(20), nullable | easy / medium / hard |
+| is_correct | BOOLEAN | server-graded via single-use ticket |
+| time_taken_seconds | INTEGER, nullable | |
+| xp_earned | INTEGER | 5 when correct (XP_CORRECT_ANSWER) |
+| created_at | DATETIME | server default now |
+
+Integrity notes (migration `b7c21d9e4f10`):
+
+* `xp_transactions` — UNIQUE `(student_id, activity_type, reference_id)`:
+  DB-level idempotency so a duplicate event can never double-reward XP.
+* `student_missions.assigned_date` (DATE) + UNIQUE
+  `(student_id, mission_id, assigned_date)`: DAILY missions are date-scoped
+  and genuinely reset each day.
+
 **End of Database Design Document**

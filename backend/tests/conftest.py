@@ -4,8 +4,13 @@
 - Provide shared fixtures: an in-memory SQLite database per test and a
   TestClient with the database dependency overridden.
 """
+import os
 import sys
 from pathlib import Path
+
+# Drop bcrypt cost to its minimum for test speed BEFORE app.core.security is
+# imported anywhere (registration/login hashing dominates the suite otherwise).
+os.environ["BCRYPT_ROUNDS"] = "4"
 
 import pytest
 from sqlalchemy import create_engine
@@ -40,6 +45,25 @@ def db(db_engine) -> Session:
         yield session
     finally:
         session.close()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset the process-wide AI rate limiter between tests.
+
+    User ids restart at 1 in every fresh test database, so limiter state must
+    not leak across tests.
+    """
+    from app.core.rate_limit import ai_limiter
+
+    ai_limiter._hits.clear()
+    yield
+    ai_limiter._hits.clear()
+    # Danger Zone reset limiter shares the same per-test reset need: user ids
+    # restart at 1 in every fresh DB, so attempt history must not leak.
+    from app.services import student_reset
+
+    student_reset._reset_attempts.clear()
 
 
 @pytest.fixture()

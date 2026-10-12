@@ -9,8 +9,9 @@ Phase 6 completion criteria (docs/Phases.md §11):
 - Results are stored.
 - Assessment history works.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
@@ -101,13 +102,13 @@ class AssessmentService:
                 if q is None or q.status != "approved":
                     raise ValidationError(f"Question {qid} is not valid/approved")
             # Remove old assessment questions
-            old_aqs = self.db.execute(
-                self.db.query(AssessmentQuestion)
-                .filter(AssessmentQuestion.assessment_id == assessment_id)
-                .statement
-            ).all()
+            old_aqs = list(self.db.scalars(
+                select(AssessmentQuestion).where(
+                    AssessmentQuestion.assessment_id == assessment_id
+                )
+            ).all())
             for aq in old_aqs:
-                self.db.delete(aq[0])
+                self.db.delete(aq)
             # Add new
             for i, qid in enumerate(qids, 1):
                 aq = AssessmentQuestion(
@@ -233,7 +234,7 @@ class AssessmentService:
         # Timer enforcement
         assessment = self.db.get(Assessment, attempt.assessment_id)
         started = attempt.started_at.replace(tzinfo=timezone.utc) if attempt.started_at.tzinfo is None else attempt.started_at
-        deadline = started + __import__("datetime").timedelta(minutes=assessment.duration_minutes)
+        deadline = started + timedelta(minutes=assessment.duration_minutes)
         now = datetime.now(timezone.utc)
         if now > deadline:
             attempt.status = "EXPIRED"
@@ -302,7 +303,7 @@ class AssessmentService:
         # Auto-expire check
         assessment = self.db.get(Assessment, attempt.assessment_id)
         started = attempt.started_at.replace(tzinfo=timezone.utc) if attempt.started_at.tzinfo is None else attempt.started_at
-        deadline = started + __import__("datetime").timedelta(minutes=assessment.duration_minutes)
+        deadline = started + timedelta(minutes=assessment.duration_minutes)
         now = datetime.now(timezone.utc)
         if now > deadline:
             attempt.status = "EXPIRED"
@@ -332,6 +333,34 @@ class AssessmentService:
 
         # Calculate topic performance
         topic_perf = self._calculate_topic_performance(attempt)
+
+        # Phase 7: record snapshot + refresh persisted topic aggregates
+        from app.services.performance import PerformanceService
+
+        PerformanceService(self.db).snapshot_after_assessment(
+            student,
+            assessment_id=attempt.assessment_id,
+            score=score,
+            accuracy=accuracy,
+        )
+
+        # Phase 10: XP, streak, missions, badges from validated server events.
+        from app.services.gamification import XP_ASSESSMENT_COMPLETE, GamificationService
+
+        gam = GamificationService(self.db)
+        gam.award_xp(
+            student, XP_ASSESSMENT_COMPLETE, "ASSESSMENT_COMPLETE",
+            reference_id=attempt.id, description=f"Assessment attempt #{attempt.id}",
+        )
+        gam.touch_streak(student)
+        gam.update_mission_progress(student, "COMPLETE_ASSESSMENT", increment=1)
+        gam.update_mission_progress(student, "ANSWER_QUESTION", increment=correct + incorrect)
+        gam.evaluate_badges(student)
+
+        # Feature Group 9: readiness recomputed from real activity after events.
+        from app.services.readiness import sync_profile_readiness
+
+        sync_profile_readiness(self.db, student)
 
         self.repo.commit()
 

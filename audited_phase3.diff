@@ -1,0 +1,2114 @@
+diff --git a/.gitignore b/.gitignore
+index 8d2b453..7c25e22 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -18,6 +18,7 @@ venv/
+ htmlcov/
+ backend/.env
+ *.db
++*.db.bak*
+ *.sqlite3
+ 
+ # --- Node / frontend ---
+diff --git a/README.md b/README.md
+index 8cbdebe..7a23f94 100644
+--- a/README.md
++++ b/README.md
+@@ -1,81 +1,280 @@
++# README.md
++
+ # SkillSprint
+ 
+-Gamified AI-powered placement-readiness and personalized learning platform.
++**Gamified, AI‑powered placement‑readiness and personalized learning platform.**
++
++> **Core loop:** `ASSESS → ANALYZE → PERSONALIZE → PRACTICE → REWARD → IMPROVE → REASSESS`
++
++Two primary value propositions:
++1. **Personalized learning** — performance analysis drives recommendations, adaptive difficulty, a personalized roadmap, and coaching‑style daily plans.
++2. **Gamification that is tied to learning** — XP, levels, streaks, missions, badges, and leaderboards are awarded for real learning activity, not cosmetics.
++
++## What it does
++
++SkillSprint is a student‑facing learning app with teacher and admin workflows on top. Students practice aptitude questions, take mock assessments, solve coding problems, and get a personalized plan. Teachers monitor only the students they explicitly associate. Admins manage users, content, analytics, and platform configuration.
+ 
+-## Core Product Loop
++### Student features
+ 
+-> **ASSESS → ANALYZE → PERSONALIZE → PRACTICE → REWARD → IMPROVE → REASSESS**
++- **Auth:** register/login; session persisted via JWT in `localStorage`.
++- **Dashboard:** daily plan, recommended next action, placement‑readiness score, weakest topics, recent badges, roadmap progress, quick‑action cards.
++- **Aptitude practice:** topic quizzes, daily quiz, practice history.
++- **Assessments:** list/start/submit attempts, attempt history, attempt results.
++- **Coding practice:** problem list, problem detail with sample test cases, submissions, submission history, personal coding performance.
++- **Company preparation:** company list and per‑company preparation profile.
++- **Personalization:** roadmap (view, generate, update item status), recommendations (list, generate, complete), skill‑gap analysis, revision feed, revision practice.
++- **AI features:** AI‑generated quiz questions and evaluation, chatbot, progressive hints.
++- **Gamification:** XP/level summary, missions, badges, activity feed, leaderboard.
++- **Coaching extras:** coaching dashboard, daily plan, skill gap, trends, revision, bookmarks, interview preparation.
++- **Account:** account settings and a self‑service data‑reset (“danger zone”) with a reset preview.
+ 
+-Two primary USPs:
+-1. **Personalized Learning** — performance analysis drives recommendations and an adaptive roadmap.
+-2. **Gamification** — XP, levels, streaks, missions, badges, and leaderboards are integrated with learning, not cosmetic.
++### Teacher features
+ 
+-## Tech Stack
++- **Teacher dashboard:** class overview with total students, average accuracy, average assessment score, students needing attention, class‑wide weak topics.
++- **Student management:** associate students by public Student ID, list associated students with headline metrics, view one associated student in detail, remove an association.
++- **Teacher navigation** is role‑aware and only exposes teacher routes and the teacher layout/header link to the teacher dashboard.
++
++### Admin features
++
++- **Admin layout:** sidebar + mobile nav for admin functions.
++- **Admin dashboard, users, topics, companies, analytics** (students / questions / submissions / popular topics), and **gamification configuration**, including badge status management.
++
++## Tech stack
+ 
+ | Layer    | Technology |
+ |----------|------------|
+ | Frontend | React, TypeScript, Vite, Tailwind CSS, React Router |
+ | Backend  | Python, FastAPI, Pydantic, SQLAlchemy, Alembic, JWT |
+-| Database | PostgreSQL (SQLite permitted for lightweight local dev) |
+-| AI       | Google Gemini API — accessed only through the backend |
++| Database | PostgreSQL in production; SQLite is used for lightweight local dev/testing |
++| AI       | Google Gemini API — accessed only through the backend, never exposed to the frontend |
+ 
+-## Project Structure
++## Repository structure
+ 
+ ```
+ SkillSprint/
+-├── frontend/          React + TypeScript + Vite app
+-├── backend/           FastAPI app
++├── frontend/            React + TypeScript + Vite app
++│   ├── src/
++│   │   ├── context/     auth context
++│   │   ├── layouts/     MainLayout (student/teacher shell)
++│   │   ├── pages/       pages by role: admin/, student/, teacher/
++│   │   ├── services/    API clients
++│   │   ├── types/       shared frontend types
++│   │   └── App.tsx      route tree + role protection
++├── backend/             FastAPI app
+ │   ├── app/
+-│   │   ├── core/        configuration & security
+ │   │   ├── api/routes/  HTTP routers
++│   │   ├── core/        configuration, security, exceptions, rate limiting
++│   │   ├── db/          session / engine
+ │   │   ├── models/      SQLAlchemy models
+-│   │   ├── schemas/     Pydantic schemas
+-│   │   ├── services/    business logic
+ │   │   ├── repositories/ data access
+-│   │   ├── db/          database session/engine
++│   │   ├── schemas/     Pydantic request/response schemas
++│   │   ├── services/    business logic
+ │   │   └── utils/       helpers
+ │   ├── alembic/         migrations
+-│   └── tests/           pytest suite
+-├── docs/              PRD, SRS, API spec, DB design, phases
+-└── scripts/           helper scripts
++│   ├── tests/           pytest suite using isolated in‑memory SQLite fixtures
++│   └── .env.example     environment variable template
++├── docs/                PRD, SRS, API spec, DB design, phases, UX, deployment notes
++└── README.md
+ ```
+ 
+-## Getting Started
++## Local setup prerequisites
+ 
+-### Backend
++- Node.js with npm (frontend)
++- Python 3 + pip (backend)
++- Git
++
++Do **not** commit `.env`, local databases, `node_modules/`, `__pycache__/`, or test artifacts.
++
++## Frontend startup
++
++```bash
++cd frontend
++npm install
++npm run dev
++```
++
++App: `http://localhost:5173` — Vite proxies `/api` to the backend.
++
++Available frontend scripts:
++- `npm run dev` — start Vite dev server
++- `npm run build` — type‑check then build for production
++- `npm run lint` — run ESLint
++- `npm run preview` — preview production build locally
++
++## Backend startup
+ 
+ ```bash
+ cd backend
+ python -m venv .venv
+-.venv\Scripts\activate          # Windows (bash: source .venv/Scripts/activate)
++.venv/Scripts/activate            # Windows
++# source .venv/Scripts/activate   # bash
+ pip install -r requirements.txt
+-copy .env.example .env          # bash: cp .env.example .env
+-uvicorn app.main:app --reload
++cp .env.example .env              # edit .env before use
++python -m app.main
+ ```
+ 
+-API docs: http://localhost:8000/docs — Health: http://localhost:8000/api/health
++If you are using the provided virtualenv already present in the repo, activate it instead of creating a new one.
++
++Backend entrypoint: `python -m app.main` (FastAPI app lives in `backend/app/main.py`).
++
++API docs: `http://localhost:8000/docs` when the server is running in non‑production mode.
++
++Health endpoint: `http://localhost:8000/api/health`
++
++## Environment variables
++
++Copy `backend/.env.example` to `backend/.env` and adjust the values. The example already contains placeholders. Key variables:
++
++- `DATABASE_URL` — e.g. `sqlite:///./skillsprint.db` for local dev, or a PostgreSQL URL for production
++- `JWT_SECRET_KEY` — **must be changed** from the placeholder in any real environment
++- `JWT_ALGORITHM` — default `HS256`
++- `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` — default `60`
++- `BCRYPT_ROUNDS` — password hashing cost; production default `12`
++- `CORS_ORIGINS` — comma‑separated allowed origins; default `http://localhost:5173`
++- `GEMINI_API_KEY` — Gemini API key; leave empty only if you do not need AI features
++- `AI_RATE_LIMIT_PER_MINUTE` — AI request budget per user per minute; default `10`
++- `CODE_EXECUTOR_URL` — in production, URL of an isolated code‑execution sidecar; unset means the local development executor
++- `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — admin seed defaults; change immediately after first run in any non‑local environment
++- `ENVIRONMENT` — e.g. `development` or `production`
++- `LOG_LEVEL` — e.g. `INFO`
++
++### Important security defaults
++
++- `JWT_SECRET_KEY` defaults to `change-me-to-a-long-random-secret` and **must be overridden** outside local development.
++- `CORS_ORIGINS` defaults to localhost origins only; a wildcard is not the default.
++- `GEMINI_API_KEY` defaults to empty; AI endpoints can return `503` when it is missing.
++- `CODE_EXECUTOR_URL` defaults to empty, which falls back to the local development executor.
++
++## Database and migrations
++
++The backend uses SQLAlchemy with Alembic for schema migrations.
++
++Development/test default: SQLite at `backend/skillsprint.db` via `DATABASE_URL=sqlite:///./skillsprint.db`.
++
++Production target: PostgreSQL.
++
++To apply migrations:
++
++```bash
++cd backend
++alembic upgrade head
++```
++
++This repository contains migration files under `backend/alembic/versions/`. Migrations are **not** executed automatically by this README; run them manually when appropriate for your environment.
++
++Do not run migrations against a database you cannot recreate. The local default database file is gitignored.
++
++## Demo / seed data
++
++The backend includes seed scripts:
++- `backend/app/seed.py`
++- `backend/app/seed_demo.py`
++
++These are available for local demonstration and testing. They are **not** run automatically by this README. Review them before using them against any database that is not disposable.
++
++## Testing
+ 
+ ### Frontend
+ 
+ ```bash
+ cd frontend
+-npm install
+-npm run dev
++npm run build        # also runs tsc -b
++npm run lint
+ ```
+ 
+-App: http://localhost:5173 (proxies `/api` to the backend).
++TypeScript type‑checking can also be run directly:
++
++```bash
++cd frontend
++npx tsc --noEmit
++```
++
++### Backend
+ 
+-### Migrations
++The backend test suite uses isolated in‑memory SQLite fixtures and does not depend on a persistent database.
++
++#### Focused runs
+ 
+ ```bash
+ cd backend
+-alembic upgrade head
++python -m pytest -q tests/test_auth.py tests/test_feature_groups.py tests/test_teachers.py tests/test_config_guard.py tests/test_practice.py
++```
++
++This project’s verified test subset in the current working tree:
++- `tests/test_auth.py`
++- `tests/test_feature_groups.py`
++- `tests/test_teachers.py`
++- `tests/test_config_guard.py`
++- `tests/test_practice.py`
++
++#### Full suite
++
++A full backend run is practical here because the suite uses in‑memory fixtures:
++
++```bash
++cd backend
++python -m pytest -q
+ ```
+ 
+-## Documentation
++If any test cannot run because dependencies or environment are missing, report that instead of faking a pass.
++
++Test files present in the current backend tree:
++- `tests/test_account_reset.py`
++- `tests/test_admin_dashboard.py`
++- `tests/test_ai.py`
++- `tests/test_ai_questions.py`
++- `tests/test_assessments.py`
++- `tests/test_auth.py`
++- `tests/test_coding.py`
++- `tests/test_config_guard.py`
++- `tests/test_content_api.py`
++- `tests/test_feature_groups.py`
++- `tests/test_gamification.py`
++- `tests/test_health.py`
++- `tests/test_integration_phase15.py`
++- `tests/test_migrations.py`
++- `tests/test_models.py`
++- `tests/test_performance.py`
++- `tests/test_practice.py`
++- `tests/test_recommendations.py`
++- `tests/test_roadmap.py`
++- `tests/test_security.py`
++- `tests/test_teachers.py`
++
++## API documentation
++
++Backend API docs are available at runtime at `/docs` when the server is running in non‑production mode.
++
++Design‑time API documentation lives in `docs/API_Specification.md` (when present).
++
++Other design docs:
++- `docs/PRD.md`
++- `docs/Database_design_docs.md`
++- `docs/Phases.md`
++- `docs/UX_UserFlow.md`
++- `docs/DEPLOYMENT.md`
++- `docs/System_Overview.md`
++
++## Current limitations
++
++- **AI features depend on external API access.** Gemini features require `GEMINI_API_KEY`. Without it, relevant endpoints can return `503`.
++- **The default code executor is for development only.** With `CODE_EXECUTOR_URL` unset, the backend uses a local subprocess executor. That is **not** a secure sandbox and must not be used for untrusted code in production. Production execution requires an isolated sidecar referenced by `CODE_EXECUTOR_URL`.
++- **Rate limiting is in‑memory.** The AI rate limiter is correct for a single‑process deployment. Horizontal scaling would need a shared backend such as Redis.
++- **This is not a production‑hardened deployment guide.** Secrets, CORS, JWT secret, code execution, and database choice must all be reviewed before any production use.
++
++## Security and deployment checklist
+ 
+-See `docs/` — `PRD.md`, `Software_requirements_specifications.md`, `API_Specification.md`, `Database_design_docs.md`, `Phases.md`, `UX_UserFlow.md`.
++Before any production deployment:
++- Set a real `JWT_SECRET_KEY`.
++- Set `ENVIRONMENT=production`.
++- Configure explicit `CORS_ORIGINS` (no wildcard).
++- Point `CODE_EXECUTOR_URL` at an isolated execution service; do not rely on the local executor.
++- Use PostgreSQL, not the SQLite development default.
++- Run migrations against the production database.
++- Rotate `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` immediately after first seed.
++- Disable OpenAPI/docs exposure in production if desired (the app already hides `/docs` and `/openapi.json` when `ENVIRONMENT=production`).
++- Ensure `.env` is never committed.
+ 
+-## Development Phases
++## Status of this repository
+ 
+-Development follows `docs/Phases.md`. Current status is tracked in that document; Phase 1 (project foundation) is in progress.
++This README reflects the current project as found in the repository. It does not claim the application is production‑ready. Several backend tests exist and pass in isolated fixtures; live runtime behavior against a real database and real external services is a separate verification step.
+diff --git a/backend/.env.example b/backend/.env.example
+index ce015c3..4c8942c 100644
+--- a/backend/.env.example
++++ b/backend/.env.example
+@@ -1,21 +1,50 @@
+-# ===== Backend =====
++[TEMPLATE]
++# ============================================================
++# SkillSprint backend environment - copy to backend/.env and fill in.
++# NEVER commit the real .env (already gitignored).
++# ============================================================
++
++# --- Database ---
+ # PostgreSQL (production target)
+ # DATABASE_URL=postgresql+psycopg://skillsprint:skillsprint@localhost:5432/skillsprint
+-
+ # SQLite (lightweight local development only)
+ DATABASE_URL=sqlite:///./skillsprint.db
+ 
+-# JWT
++# --- JWT ---
+ JWT_SECRET_KEY=change-me-to-a-long-random-secret
+ JWT_ALGORITHM=HS256
+ JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
+ 
+-# CORS (comma-separated origins)
++# --- Password hashing cost (production default 12; tests may lower it) ---
++BCRYPT_ROUNDS=12
++
++# --- CORS (comma-separated origins; '*' is refused in production) ---
+ CORS_ORIGINS=http://localhost:5173
+ 
+-# AI — never expose to the frontend
++# --- AI (Gemini) — never expose to the frontend; AI endpoints 503 without it ---
+ GEMINI_API_KEY=
+ 
+-# Environment
++# --- AI rate limit: requests per user per minute on /api/ai/* endpoints ---
++AI_RATE_LIMIT_PER_MINUTE=10
++
++# --- Code execution sandbox ---
++# Unset            → local subprocess executor (DEVELOPMENT ONLY — not a sandbox)
++# Set in production → URL of an isolated sidecar implementing
++#                      POST /execute {language, source, stdin, time_limit_ms}
++CODE_EXECUTOR_URL=
++
++# --- Admin seeding (python -m app.seed) ---
++# Defaults: admin@skillsprint.com / ChangeMe!123 — ALWAYS override in production.
++ADMIN_SEED_EMAIL=admin@skillsprint.com
++ADMIN_SEED_PASSWORD=ChangeMe!123
++
++# --- Environment ---
+ ENVIRONMENT=development
+ LOG_LEVEL=INFO
++
++# --- Security reminders ---
++# JWT_SECRET_KEY must be a long random value in any non-local environment.
++# CODE_EXECUTOR_URL must point to an isolated execution sidecar in production.
++# CORS_ORIGINS must not be wildcarded in production.
++# ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD are only used when first seeding the
++# admin account. Rotate them immediately after the first run in any non-local env.
+diff --git a/backend/app/api/routes/__init__.py b/backend/app/api/routes/__init__.py
+index b0e42a5..bfd7f47 100644
+--- a/backend/app/api/routes/__init__.py
++++ b/backend/app/api/routes/__init__.py
+@@ -1,7 +1,26 @@
+ """API router aggregation."""
+ from fastapi import APIRouter
+ 
+-from app.api.routes import admin, assessments, auth, content, health, students, teachers
++from app.api.routes import (
++    account,
++    adaptive,
++    admin,
++    ai,
++    assessments,
++    auth,
++    bookmarks,
++    coding,
++    coaching,
++    content,
++    gamification,
++    health,
++    interview,
++    performance,
++    recommendations,
++    roadmap,
++    students,
++    teachers,
++)
+ 
+ api_router = APIRouter()
+ api_router.include_router(health.router)
+@@ -11,3 +30,14 @@ api_router.include_router(teachers.router)
+ api_router.include_router(admin.router)
+ api_router.include_router(content.router)
+ api_router.include_router(assessments.router)
++api_router.include_router(performance.router)
++api_router.include_router(recommendations.router)
++api_router.include_router(roadmap.router)
++api_router.include_router(gamification.router)
++api_router.include_router(coding.router)
++api_router.include_router(ai.router)
++api_router.include_router(coaching.router)
++api_router.include_router(adaptive.router)
++api_router.include_router(bookmarks.router)
++api_router.include_router(interview.router)
++api_router.include_router(account.router)
+diff --git a/backend/app/api/routes/teachers.py b/backend/app/api/routes/teachers.py
+index b323a75..f74fbb9 100644
+--- a/backend/app/api/routes/teachers.py
++++ b/backend/app/api/routes/teachers.py
+@@ -2,16 +2,21 @@
+ 
+ Phase 4 scope: teacher question submission (questions start in PENDING status
+ for admin approval).
++Phase 12 scope: student association by Student ID and the teacher dashboard
++(metrics come from the Phase 7 performance engine; access is isolated to
++students explicitly associated via ``teacher_students``).
+ """
+ from typing import Annotated
+ 
+ from fastapi import APIRouter, Depends
++from pydantic import BaseModel, Field
+ from sqlalchemy.orm import Session
+ 
+ from app.api.deps import require_teacher
+ from app.db.session import get_db
+ from app.schemas.question import QuestionCreate, QuestionReadAdmin
+ from app.services.question import QuestionService
++from app.services.teacher import TeacherService
+ from app.utils.responses import success_response
+ 
+ router = APIRouter(prefix="/teachers", tags=["teachers"])
+@@ -21,6 +26,14 @@ def _get_question_service(db: Session = Depends(get_db)) -> QuestionService:
+     return QuestionService(db)
+ 
+ 
++def _get_teacher_service(db: Session = Depends(get_db)) -> TeacherService:
++    return TeacherService(db)
++
++
++class AddStudentRequest(BaseModel):
++    student_id: str = Field(min_length=1, max_length=30, description="Public Student ID (SS…) of the student to associate")
++
++
+ @router.post("/questions", status_code=201)
+ def submit_question(
+     data: QuestionCreate,
+@@ -38,3 +51,79 @@ def submit_question(
+         message="Question submitted for review",
+         status_code=201,
+     )
++
++
++# ============================================================ STUDENT ASSOCIATION (Phase 12)
++
++def _teacher_profile(user):
++    """Resolve the TeacherProfile for the current user, or 404."""
++    from app.core.exceptions import NotFoundError
++
++    profile = user.teacher_profile
++    if profile is None:
++        raise NotFoundError("Teacher profile not found")
++    return profile
++
++
++@router.post("/students", status_code=201)
++def add_student(
++    req: AddStudentRequest,
++    user: Annotated[object, Depends(require_teacher)],
++    service: TeacherService = Depends(_get_teacher_service),
++):
++    """Associate a student by their public Student ID."""
++    link = service.add_student(_teacher_profile(user), req.student_id)
++    return success_response(
++        data={
++            "id": link.id,
++            "student_profile_id": link.student_id,
++            "status": link.status,
++        },
++        message="Student associated",
++        status_code=201,
++    )
++
++
++@router.get("/students")
++def list_students(
++    user: Annotated[object, Depends(require_teacher)],
++    service: TeacherService = Depends(_get_teacher_service),
++):
++    """All associated students with headline performance metrics."""
++    data = service.list_students(_teacher_profile(user))
++    return success_response(data=data, message="Students retrieved")
++
++
++@router.get("/dashboard")
++def teacher_dashboard(
++    user: Annotated[object, Depends(require_teacher)],
++    service: TeacherService = Depends(_get_teacher_service),
++):
++    """Class overview: totals, averages, per-student metrics, class-wide weak topics."""
++    data = service.dashboard(_teacher_profile(user))
++    return success_response(data=data, message="Teacher dashboard retrieved")
++
++
++@router.get("/students/{student_profile_id}")
++def student_detail(
++    student_profile_id: int,
++    user: Annotated[object, Depends(require_teacher)],
++    service: TeacherService = Depends(_get_teacher_service),
++):
++    """Full performance view for one ASSOCIATED student (403 otherwise)."""
++    data = service.get_associated_student(_teacher_profile(user), student_profile_id)
++    return success_response(data=data, message="Student detail retrieved")
++
++
++@router.delete("/students/{student_profile_id}", status_code=200)
++def remove_student(
++    student_profile_id: int,
++    user: Annotated[object, Depends(require_teacher)],
++    service: TeacherService = Depends(_get_teacher_service),
++):
++    """Remove (soft-delete) a student association."""
++    service.remove_student(_teacher_profile(user), student_profile_id)
++    return success_response(
++        data={"student_profile_id": student_profile_id, "status": "REMOVED"},
++        message="Student association removed",
++    )
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 711058e..37422a7 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -26,16 +26,34 @@ class Settings(BaseSettings):
+     JWT_ALGORITHM: str = "HS256"
+     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+ 
+-    # CORS
+-    CORS_ORIGINS: str = "http://localhost:5173"
++    # Password hashing cost (tests override to 4; production default is 12)
++    BCRYPT_ROUNDS: int = 12
++
++    # CORS (comma-separated list of allowed origins)
++    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+ 
+     # AI
+     GEMINI_API_KEY: str = ""
+ 
++    # Code execution sandbox (production: URL of a sandboxed sidecar service)
++    CODE_EXECUTOR_URL: str = ""
++
++    # Rate limiting for AI (Gemini) endpoints: requests per user per minute
++    AI_RATE_LIMIT_PER_MINUTE: int = 10
++
+     @property
+     def cors_origins(self) -> list[str]:
+         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+ 
++    @property
++    def is_production(self) -> bool:
++        return self.ENVIRONMENT.lower() == "production"
++
++    @property
++    def gemini_configured(self) -> bool:
++        """True when a Gemini API key is present (never exposes the key)."""
++        return bool(self.GEMINI_API_KEY.strip())
++
+ 
+ @lru_cache
+ def get_settings() -> Settings:
+diff --git a/backend/app/core/exceptions.py b/backend/app/core/exceptions.py
+index 82a409c..e9b445f 100644
+--- a/backend/app/core/exceptions.py
++++ b/backend/app/core/exceptions.py
+@@ -45,3 +45,10 @@ class ForbiddenError(SkillSprintError):
+ 
+     status_code = 403
+     error_code = "FORBIDDEN"
++
++
++class ServiceUnavailableError(SkillSprintError):
++    """A dependency (e.g. AI service) is unavailable or unconfigured (503)."""
++
++    status_code = 503
++    error_code = "SERVICE_UNAVAILABLE"
+diff --git a/backend/app/core/security.py b/backend/app/core/security.py
+index eaa5d87..2cf686f 100644
+--- a/backend/app/core/security.py
++++ b/backend/app/core/security.py
+@@ -19,9 +19,13 @@ _MIN_PASSWORD_LENGTH = 8
+ # login-time comparison matches what was hashed rather than silently truncating.
+ _MAX_PASSWORD_BYTES = 72
+ 
++# Cost factor is configurable so tests can drop it (4 is bcrypt's minimum) and
++# keep the suite fast; production always uses the default of 12.
++BCRYPT_ROUNDS = max(4, min(15, settings.BCRYPT_ROUNDS))
++
+ 
+ def hash_password(plain: str) -> str:
+-    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
++    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("utf-8")
+ 
+ 
+ def verify_password(plain: str, hashed: str) -> bool:
+@@ -52,5 +56,15 @@ def create_access_token(subject: str, extra: dict[str, Any] | None = None) -> st
+ 
+ 
+ def decode_access_token(token: str) -> dict[str, Any]:
+-    """Decode and verify a JWT, raising JWTError on tamper/expiry."""
+-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
++    """Decode and verify a JWT, raising JWTError on tamper/expiry.
++
++    ``exp`` and ``sub`` are mandatory claims: a token without an expiry would
++    otherwise be accepted forever, and a token without a subject cannot
++    identify a user.
++    """
++    return jwt.decode(
++        token,
++        settings.JWT_SECRET_KEY,
++        algorithms=[settings.JWT_ALGORITHM],
++        options={"require_exp": True, "require_sub": True},
++    )
+diff --git a/backend/app/db/session.py b/backend/app/db/session.py
+index f394df8..91533a6 100644
+--- a/backend/app/db/session.py
++++ b/backend/app/db/session.py
+@@ -9,7 +9,21 @@ from app.core.config import settings
+ # SQLite needs a check_same_thread exemption for FastAPI's threadpool.
+ connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+ 
+-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
++# Pool sizing (Phase 15.9 — concurrent-user safety). SQLite ignores pool
++# kwargs; PostgreSQL uses them so 10-20 concurrent users never exhaust the
++# default pool (which is only 5 + overflow 10).
++if settings.DATABASE_URL.startswith("sqlite"):
++    engine = create_engine(settings.DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
++else:
++    engine = create_engine(
++        settings.DATABASE_URL,
++        connect_args=connect_args,
++        pool_pre_ping=True,
++        pool_size=20,
++        max_overflow=10,
++        pool_timeout=30,
++        pool_recycle=1800,
++    )
+ 
+ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+ 
+diff --git a/backend/app/main.py b/backend/app/main.py
+index a9a0a12..9394813 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -10,24 +10,56 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
+ from app.api.routes import api_router
+ from app.core.config import settings
+ from app.core.exceptions import SkillSprintError
++from app.core.rate_limit import RateLimitExceededError
+ 
+ logging.basicConfig(level=settings.LOG_LEVEL)
+ logger = logging.getLogger("skillsprint")
+ 
++# ------------------------------------------------------------------ config guard
++# Phase 15 rule: never allow_origins=["*"] in production. The allowed origins
++# always come from CORS_ORIGINS env (comma-separated) — a wildcard value is
++# refused at startup in production so a misconfiguration cannot ship.
++def validate_production_config(cfg) -> None:
++    """Refuse to boot with unsafe production configuration.
++
++    Extracted as a function so the guard is unit-testable without re-importing
++    the app module (import-time checks run when this module is loaded).
++    """
++    if not cfg.is_production:
++        return
++    origins = cfg.cors_origins
++    if not origins or "*" in origins:
++        raise RuntimeError(
++            "CORS_ORIGINS must list explicit production origins "
++            "(comma-separated) when ENVIRONMENT=production — '*' is not allowed."
++        )
++    # Audit fix (M1): a default JWT secret in production means every token is
++    # forgeable — the exact failure the CORS guard exists to prevent. Fail at
++    # startup, mirroring the CORS rule, so a forgotten .env cannot ship.
++    if cfg.JWT_SECRET_KEY in ("change-me-to-a-long-random-secret", "", "secret", "changeme"):
++        raise RuntimeError(
++            "JWT_SECRET_KEY must be set to a long random value when "
++            "ENVIRONMENT=production — the default secret is not deployable."
++        )
++
++
++validate_production_config(settings)
++_cors_origins = settings.cors_origins
++
+ app = FastAPI(
+     title=settings.APP_NAME,
+     version="0.1.0",
+     description="Gamified AI-powered placement-readiness and personalized learning platform.",
+-    docs_url="/docs",
+-    openapi_url="/openapi.json",
++    docs_url="/docs" if not settings.is_production else None,
++    openapi_url="/openapi.json" if not settings.is_production else None,
+ )
+ 
+ app.add_middleware(
+     CORSMiddleware,
+-    allow_origins=settings.cors_origins,
++    allow_origins=_cors_origins,
+     allow_credentials=True,
+-    allow_methods=["*"],
+-    allow_headers=["*"],
++    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
++    allow_headers=["Authorization", "Content-Type"],
+ )
+ 
+ app.include_router(api_router, prefix="/api")
+@@ -46,6 +78,16 @@ _ERROR_CODE_BY_STATUS = {
+ }
+ 
+ 
++@app.exception_handler(RateLimitExceededError)
++async def rate_limit_exception_handler(request: Request, exc: RateLimitExceededError) -> JSONResponse:
++    """AI quota exhaustion returns 429 with the standard error envelope."""
++    return JSONResponse(
++        status_code=exc.status_code,
++        content={"success": False, "message": exc.message, "error_code": exc.error_code},
++        headers={"Retry-After": str(exc.retry_after_seconds)},
++    )
++
++
+ @app.exception_handler(StarletteHTTPException)
+ async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+     """Route all HTTP errors (including 404) through the standard envelope."""
+diff --git a/backend/app/models/__init__.py b/backend/app/models/__init__.py
+index 36dc094..798a80c 100644
+--- a/backend/app/models/__init__.py
++++ b/backend/app/models/__init__.py
+@@ -19,6 +19,8 @@ from app.models.leaderboard import Leaderboard, LeaderboardEntry
+ from app.models.coding import CodingProblem, CodeSubmission, TestCase
+ from app.models.activity import ActivityEvent
+ from app.models.practice import PracticeAnswer, PracticeSession
++from app.models.ai_answer_log import AIAnswerLog
++from app.models.bookmark import Bookmark
+ 
+ __all__ = [
+     "Base",
+@@ -53,4 +55,6 @@ __all__ = [
+     "ActivityEvent",
+     "PracticeSession",
+     "PracticeAnswer",
++    "AIAnswerLog",
++    "Bookmark",
+ ]
+diff --git a/backend/app/models/gamification.py b/backend/app/models/gamification.py
+index f4d1ff1..4f7fde2 100644
+--- a/backend/app/models/gamification.py
++++ b/backend/app/models/gamification.py
+@@ -35,9 +35,17 @@ class StudentBadge(Base):
+ 
+ 
+ class XPTransaction(Base):
+-    """Auditable XP ledger; profile xp is a cached aggregate of these rows."""
++    """Auditable XP ledger; profile xp is a cached aggregate of these rows.
++
++    Unique on (student, activity_type, reference_id): DB-level idempotency for
++    event-derived rewards (reference_id is NULL for replay-safe types like
++    AI_QUESTION_CORRECT, which are protected by single-use tickets instead).
++    """
+ 
+     __tablename__ = "xp_transactions"
++    __table_args__ = (
++        UniqueConstraint("student_id", "activity_type", "reference_id", name="uq_xp_event"),
++    )
+ 
+     id: Mapped[int] = mapped_column(BIGINT_PK, primary_key=True, autoincrement=True)
+     student_id: Mapped[int] = mapped_column(
+diff --git a/backend/app/services/auth.py b/backend/app/services/auth.py
+index da6c453..b2b3c6f 100644
+--- a/backend/app/services/auth.py
++++ b/backend/app/services/auth.py
+@@ -9,6 +9,8 @@ Registration rules:
+ from datetime import datetime, timezone
+ from decimal import Decimal
+ 
++import logging
++
+ from sqlalchemy import func, select
+ from sqlalchemy.orm import Session
+ 
+@@ -27,6 +29,8 @@ from app.schemas.auth import (
+ 
+ _STUDENT_ID_PREFIX = "SS"
+ 
++logger = logging.getLogger("skillsprint.auth")
++
+ 
+ def _current_year_short() -> str:
+     return f"{datetime.now(timezone.utc).year % 100:02d}"
+@@ -92,9 +96,14 @@ class AuthService:
+     def login(self, req: LoginRequest) -> LoginData:
+         user = self.db.scalar(select(User).where(User.email == req.email.lower()))
+         # Same message for unknown email and wrong password (no account enumeration).
++        # Observability (Phase 23): failures are logged WITHOUT the attempted
++        # password or any credential material — email (an identifier, not a
++        # secret) is included so repeated failures are traceable.
+         if user is None or not verify_password(req.password, user.password_hash):
++            logger.warning("Login failed: unknown email or wrong password (email=%s)", req.email.lower())
+             raise AuthError("Incorrect email or password")
+         if not user.is_active:
++            logger.warning("Login rejected: deactivated account (email=%s)", req.email.lower())
+             raise AuthError("Account is deactivated")
+ 
+         token = create_access_token(str(user.id), extra={"role": user.role, "email": user.email})
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 57ce726..607cccc 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -1,9 +1,11 @@
+-import { Routes, Route, Navigate } from 'react-router-dom'
++import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+ import { AuthProvider, useAuth } from './context/AuthContext'
+ import MainLayout from './layouts/MainLayout'
+ import LoginPage from './pages/LoginPage'
+ import RegisterPage from './pages/RegisterPage'
+-import DashboardPage from './pages/DashboardPage'
++
++// Student pages
++import StudentDashboardPage from './pages/student/StudentDashboardPage'
+ import TopicsPage from './pages/TopicsPage'
+ import CompaniesPage from './pages/CompaniesPage'
+ import PracticePage from './pages/PracticePage'
+@@ -15,14 +17,74 @@ import AssessmentStartPage from './pages/AssessmentStartPage'
+ import AttemptPage from './pages/AttemptPage'
+ import ResultPage from './pages/ResultPage'
+ import AttemptHistoryPage from './pages/AttemptHistoryPage'
++import CodingProblemsPage from './pages/student/CodingProblemsPage'
++import CodingProblemPage from './pages/student/CodingProblemPage'
++import CodingResultPage from './pages/student/CodingResultPage'
++import CompanyModePage from './pages/student/CompanyModePage'
++import RoadmapPage from './pages/student/RoadmapPage'
++import RecommendationsPage from './pages/student/RecommendationsPage'
++import GamificationPage from './pages/student/GamificationPage'
++import AnalyticsPage from './pages/student/AnalyticsPage'
++import AIQuizPage from './pages/student/AIQuizPage'
++import ChatbotPage from './pages/student/ChatbotPage'
++import SkillGapPage from './pages/student/SkillGapPage'
++import RevisionPage from './pages/student/RevisionPage'
++import BookmarksPage from './pages/student/BookmarksPage'
++import AccountSettingsPage from './pages/student/AccountSettingsPage'
++import InterviewPage from './pages/student/InterviewPage'
++
++// Admin pages
++import AdminLayout from './pages/admin/AdminLayout'
++import AdminDashboardPage from './pages/admin/AdminDashboardPage'
++import AdminUsersPage from './pages/admin/AdminUsersPage'
++import AdminTopicsPage from './pages/admin/AdminTopicsPage'
++import AdminCompaniesPage from './pages/admin/AdminCompaniesPage'
++import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage'
++import AdminGamificationConfigPage from './pages/admin/AdminGamificationConfigPage'
++
++// Teacher pages
++import TeacherDashboardPage from './pages/teacher/TeacherDashboardPage'
++import TeacherStudentsPage from './pages/teacher/TeacherStudentsPage'
++
++function TeacherGate({ children }: { children: React.ReactNode }) {
++  const { user, loading } = useAuth()
++  if (loading) return <div className="text-center py-12 text-slate-500">Loading…</div>
++  if (!user || user.role !== 'teacher') return <Navigate to="/login" replace />
++  return <>{children}</>
++}
+ 
+-function ProtectedRoute({ children }: { children: React.ReactNode }) {
++function ProtectedRoute({
++  children,
++  role,
++}: {
++  children: React.ReactNode
++  role?: 'student' | 'teacher' | 'admin'
++}) {
+   const { user, loading } = useAuth()
++  const location = useLocation()
+   if (loading) return <div className="text-center py-12 text-slate-500">Loading…</div>
+-  if (!user) return <Navigate to="/login" replace />
++  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
++  if (role && user.role !== role) {
++    // Role mismatch: send them to their own home, never show another role's UI.
++    const home =
++      user.role === 'admin'
++        ? '/admin/dashboard'
++        : user.role === 'teacher'
++          ? '/teacher/dashboard'
++          : '/student/dashboard'
++    return <Navigate to={home} replace />
++  }
+   return <>{children}</>
+ }
+ 
++function StudentLayout() {
++  return (
++    <ProtectedRoute role="student">
++      <MainLayout />
++    </ProtectedRoute>
++  )
++}
++
+ function App() {
+   return (
+     <AuthProvider>
+@@ -30,22 +92,79 @@ function App() {
+         <Route path="/login" element={<LoginPage />} />
+         <Route path="/register" element={<RegisterPage />} />
+ 
+-        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+-          <Route path="/dashboard" element={<DashboardPage />} />
+-          <Route path="/topics" element={<TopicsPage />} />
+-          <Route path="/companies" element={<CompaniesPage />} />
+-          <Route path="/practice" element={<PracticePage />} />
+-          <Route path="/practice/history" element={<HistoryPage />} />
+-          <Route path="/progress" element={<ProgressPage />} />
+-          <Route path="/quiz/daily" element={<DailyQuizPage />} />
+-          <Route path="/assessments" element={<AssessmentsPage />} />
+-          <Route path="/assessments/:id/start" element={<AssessmentStartPage />} />
+-          <Route path="/attempts/:id" element={<AttemptPage />} />
+-          <Route path="/attempts/:id/result" element={<ResultPage />} />
+-          <Route path="/attempts" element={<AttemptHistoryPage />} />
++        {/* ============================== STUDENT ============================== */}
++        <Route element={<StudentLayout />}>
++          <Route path="/student/dashboard" element={<StudentDashboardPage />} />
++          <Route path="/student/aptitude/topics" element={<TopicsPage />} />
++          <Route path="/student/aptitude/quiz/:topicId" element={<AttemptPage />} />
++          <Route path="/student/aptitude/result/:attemptId" element={<ResultPage />} />
++          <Route path="/student/practice" element={<PracticePage />} />
++          <Route path="/student/practice/history" element={<HistoryPage />} />
++          <Route path="/student/companies" element={<CompaniesPage />} />
++          <Route path="/student/assessments" element={<AssessmentsPage />} />
++          <Route path="/student/assessments/:id/start" element={<AssessmentStartPage />} />
++          <Route path="/student/attempts/:id" element={<AttemptPage />} />
++          <Route path="/student/attempts/:id/result" element={<ResultPage />} />
++          <Route path="/student/attempts" element={<AttemptHistoryPage />} />
++          <Route path="/student/quiz/daily" element={<DailyQuizPage />} />
++          <Route path="/student/progress" element={<ProgressPage />} />
++
++          {/* Coding */}
++          <Route path="/student/coding/problems" element={<CodingProblemsPage />} />
++          <Route path="/student/coding/problems/:id" element={<CodingProblemPage />} />
++          <Route path="/student/coding/problems/:id/result" element={<CodingResultPage />} />
++
++          {/* Company preparation (Feature Group 7) */}
++          <Route path="/student/companies/:id" element={<CompanyModePage />} />
++
++          {/* Personalization + gamification */}
++          <Route path="/student/roadmap" element={<RoadmapPage />} />
++          <Route path="/student/recommendations" element={<RecommendationsPage />} />
++          <Route path="/student/gamification" element={<GamificationPage />} />
++          <Route path="/student/analytics" element={<AnalyticsPage />} />
++          <Route path="/student/ai-quiz" element={<AIQuizPage />} />
++          <Route path="/student/chatbot" element={<ChatbotPage />} />
++
++          {/* Coaching feature groups */}
++          <Route path="/student/skill-gap" element={<SkillGapPage />} />
++          <Route path="/student/revision" element={<RevisionPage />} />
++          <Route path="/student/bookmarks" element={<BookmarksPage />} />
++          <Route path="/student/interview" element={<InterviewPage />} />
++          <Route path="/student/settings" element={<AccountSettingsPage />} />
++        </Route>
++
++        {/* ============================== ADMIN ============================== */}
++        <Route
++          element={
++            <ProtectedRoute role="admin">
++              <AdminLayout />
++            </ProtectedRoute>
++          }
++        >
++          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
++          <Route path="/admin/users" element={<AdminUsersPage />} />
++          <Route path="/admin/topics" element={<AdminTopicsPage />} />
++          <Route path="/admin/companies" element={<AdminCompaniesPage />} />
++          <Route path="/admin/analytics" element={<Navigate to="/admin/analytics/students" replace />} />
++          <Route path="/admin/analytics/students" element={<AdminAnalyticsPage />} />
++          <Route path="/admin/analytics/questions" element={<AdminAnalyticsPage />} />
++          <Route path="/admin/analytics/submissions" element={<AdminAnalyticsPage />} />
++          <Route path="/admin/analytics/popular-topics" element={<AdminAnalyticsPage />} />
++          <Route path="/admin/gamification-config" element={<AdminGamificationConfigPage />} />
++        </Route>
++
++        {/* ============================== TEACHER ============================== */}
++        <Route
++          element={<TeacherGate><MainLayout /></TeacherGate>}
++        >
++          <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
++          <Route path="/teacher/students" element={<TeacherStudentsPage />} />
+         </Route>
+ 
+-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
++        {/* Legacy + fallback redirects */}
++        <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
++        <Route path="/" element={<Navigate to="/student/dashboard" replace />} />
++        <Route path="*" element={<Navigate to="/student/dashboard" replace />} />
+       </Routes>
+     </AuthProvider>
+   )
+diff --git a/frontend/src/layouts/MainLayout.tsx b/frontend/src/layouts/MainLayout.tsx
+index 39df47a..ddd6043 100644
+--- a/frontend/src/layouts/MainLayout.tsx
++++ b/frontend/src/layouts/MainLayout.tsx
+@@ -1,54 +1,91 @@
+-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
++import { Outlet, Link, useNavigate, NavLink } from 'react-router-dom'
+ import { useAuth } from '../context/AuthContext'
+ 
+-const navLinks = [
+-  { to: '/dashboard', label: 'Dashboard' },
+-  { to: '/topics', label: 'Topics' },
+-  { to: '/companies', label: 'Companies' },
+-  { to: '/practice/history', label: 'History' },
+-  { to: '/progress', label: 'Progress' },
+-  { to: '/assessments', label: 'Assessments' },
+-  { to: '/attempts', label: 'My Attempts' },
++const STUDENT_LINKS = [
++  { to: '/student/dashboard', label: 'Dashboard' },
++  { to: '/student/aptitude/topics', label: 'Topics' },
++  { to: '/student/coding/problems', label: 'Coding' },
++  { to: '/student/ai-quiz', label: 'AI Quiz' },
++  { to: '/student/chatbot', label: 'Chatbot' },
++  { to: '/student/interview', label: 'Interview' },
++  { to: '/student/skill-gap', label: 'Skill Gap' },
++  { to: '/student/revision', label: 'Revision' },
++  { to: '/student/bookmarks', label: 'Saved' },
++  { to: '/student/roadmap', label: 'Roadmap' },
++  { to: '/student/recommendations', label: 'Recommendations' },
++  { to: '/student/gamification', label: 'Achievements' },
++  { to: '/student/companies', label: 'Companies' },
++  { to: '/student/assessments', label: 'Assessments' },
++  { to: '/student/attempts', label: 'My Attempts' },
++  { to: '/student/analytics', label: 'Analytics' },
+ ]
+ 
+-function MainLayout() {
++const TEACHER_LINKS = [
++  { to: '/teacher/dashboard', label: 'Dashboard' },
++  { to: '/teacher/students', label: 'Students' },
++]
++
++export default function MainLayout() {
+   const { user, logout } = useAuth()
+   const navigate = useNavigate()
+-  const location = useLocation()
+ 
+   const handleLogout = () => {
+     logout()
+     navigate('/login')
+   }
+ 
++  const isTeacher = user?.role === 'teacher'
++
+   return (
+     <div className="min-h-screen bg-slate-50 text-slate-900">
+       <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
+         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+-          <Link to="/dashboard" className="text-lg font-bold text-indigo-600">SkillSprint</Link>
++          <Link to={isTeacher ? '/teacher/dashboard' : '/student/dashboard'} className="text-lg font-bold text-indigo-600">SkillSprint</Link>
+ 
+           <nav className="flex items-center gap-1 text-sm overflow-x-auto">
+-            {user && navLinks.map((l) => (
+-              <Link
++            {user && (isTeacher ? TEACHER_LINKS : STUDENT_LINKS).map((l) => (
++              <NavLink
+                 key={l.to}
+                 to={l.to}
+-                className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+-                  location.pathname === l.to || location.pathname.startsWith(l.to + '/')
+-                    ? 'bg-indigo-100 text-indigo-700 font-medium'
+-                    : 'text-slate-600 hover:bg-slate-100'
+-                }`}
++                className={({ isActive }) =>
++                  `px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
++                    isActive
++                      ? 'bg-indigo-100 text-indigo-700 font-medium'
++                      : 'text-slate-600 hover:bg-slate-100'
++                  }`
++                }
+               >
+                 {l.label}
+-              </Link>
++              </NavLink>
+             ))}
+           </nav>
+ 
+           <div className="flex items-center gap-3">
++            {user && (
++              <span className="text-xs text-slate-500 hidden sm:inline">
++                {user.name} ({user.role})
++              </span>
++            )}
+             {user ? (
+               <>
+-                <span className="text-xs text-slate-500 hidden sm:inline">
+-                  {user.name} ({user.role})
+-                </span>
++                {user.role === 'student' && (
++                  <Link
++                    to="/student/settings"
++                    className="text-xs text-slate-500 hover:text-slate-700 font-medium"
++                    title="Account settings"
++                  >
++                    Settings
++                  </Link>
++                )}
++                {user.role === 'teacher' && (
++                  <Link
++                    to="/teacher/dashboard"
++                    className="text-xs text-slate-500 hover:text-slate-700 font-medium"
++                    title="Back to teacher dashboard"
++                  >
++                    Teacher
++                  </Link>
++                )}
+                 <button
+                   onClick={handleLogout}
+                   className="text-xs text-red-600 hover:text-red-700 font-medium"
+@@ -70,5 +107,3 @@ function MainLayout() {
+     </div>
+   )
+ }
+-
+-export default MainLayout
+diff --git a/frontend/src/services/api.ts b/frontend/src/services/api.ts
+index ef84cbc..45d35cc 100644
+--- a/frontend/src/services/api.ts
++++ b/frontend/src/services/api.ts
+@@ -1,25 +1,65 @@
+ import axios from 'axios'
+ import type {
+-  ApiResponse,
+-  AuthData,
++  AdaptiveDifficulty,
++  AIQuestion,
++  AIQuestionEvaluateResult,
++  ActivityEventItem,
++  AdminUserListData,
++  AssessmentRead,
+   AttemptAnswerRequest,
+   AttemptAnswerResponse,
+   AttemptHistoryItem,
+   AttemptResultResponse,
+   AttemptStartResponse,
+   AttemptSubmitResponse,
+-  AssessmentRead,
++  BadgeCatalogEntry,
++  BookmarkItem,
++  ChatMessage,
++  ChatResponseData,
++  CoachingDashboard,
++  CodingPerformance,
++  CodingProblemDetail,
++  CodingProblemListData,
++  CodingSubmissionHistoryData,
++  CodingSubmissionResult,
+   Company,
++  CompanyProfile,
+   DashboardData,
++  DailyPlan,
++  EarnedBadge,
++  GamificationConfig,
++  GamificationSummary,
++  InterviewConfig,
++  InterviewFeedback,
++  InterviewQuestions,
++  LeaderboardRow,
+   LoginResponse,
++  MissionItem,
+   OverallProgressData,
++  PlatformAnalytics,
+   PracticeAnswerData,
+   PracticeAnswerRequest,
+   PracticeCompleteData,
+   PracticeHistoryData,
++  ResetPreview,
+   PracticeStartData,
++  ProgressTrendsData,
++  QuestionAnalytics,
++  RecommendationListData,
++  RevisionFeed,
++  RevisionPracticeResult,
++  RoadmapData,
++  SkillGapData,
++  StudentAnalyticsRow,
+   StudentProfile,
++  SubmissionAnalytics,
++  PopularTopicRow,
++  TeacherDashboardData,
+   Topic,
++  CurrentUser,
++  StudentRegisterData,
++  TeacherRegisterData,
++  ApiResponse,
+ } from '../types'
+ 
+ const api = axios.create({
+@@ -36,11 +76,17 @@ api.interceptors.request.use((config) => {
+   return config
+ })
+ 
+-// Auto-logout on 401
++// Auto-logout on 401 from API calls. Auth endpoints (/auth/login,
++// /auth/register/*) are excluded: when a stale token is still in storage and
++// the user submits wrong credentials, the 401 belongs to the login attempt —
++// reloading the page there would wipe the "Incorrect email or password"
++// error instead of showing it.
+ api.interceptors.response.use(
+   (res) => res,
+   (err) => {
+-    if (err.response?.status === 401 && localStorage.getItem('token')) {
++    const url: string = err.config?.url ?? ''
++    const isAuthCall = url.startsWith('/auth/login') || url.startsWith('/auth/register')
++    if (err.response?.status === 401 && !isAuthCall && localStorage.getItem('token')) {
+       localStorage.removeItem('token')
+       localStorage.removeItem('user')
+       window.location.href = '/login'
+@@ -55,12 +101,12 @@ export const authApi = {
+     api.post<ApiResponse<LoginResponse>>('/auth/login', { email, password }),
+ 
+   registerStudent: (name: string, email: string, password: string) =>
+-    api.post<ApiResponse>('/auth/register/student', { name, email, password }),
++    api.post<ApiResponse<StudentRegisterData>>('/auth/register/student', { name, email, password }),
+ 
+   registerTeacher: (name: string, email: string, password: string, department?: string) =>
+-    api.post<ApiResponse>('/auth/register/teacher', { name, email, password, department }),
++    api.post<ApiResponse<TeacherRegisterData>>('/auth/register/teacher', { name, email, password, department }),
+ 
+-  me: () => api.get<ApiResponse<AuthData['data']['user']>>('/auth/me'),
++  me: () => api.get<ApiResponse<CurrentUser>>('/auth/me'),
+ }
+ 
+ // ============ Student
+@@ -132,4 +178,194 @@ export const assessmentApi = {
+     api.get<ApiResponse<AttemptHistoryItem[]>>('/students/me/attempts', { params: { page, limit } }),
+ }
+ 
++// ============ Coding (Phase 15B)
++export const codingApi = {
++  problems: (page = 1, limit = 50, filters?: { difficulty?: string; topic_id?: number }) =>
++    api.get<ApiResponse<CodingProblemListData>>('/coding/problems', {
++      params: { page, limit, ...filters },
++    }),
++
++  problem: (id: number) =>
++    api.get<ApiResponse<CodingProblemDetail>>(`/coding/problems/${id}`),
++
++  submit: (problemId: number, language: string, source_code: string) =>
++    api.post<ApiResponse<CodingSubmissionResult>>(`/coding/problems/${problemId}/submit`, {
++      language,
++      source_code,
++    }),
++
++  submissions: (page = 1, limit = 20, problemId?: number) =>
++    api.get<ApiResponse<CodingSubmissionHistoryData>>('/coding/submissions/me', {
++      params: { page, limit, ...(problemId ? { problem_id: problemId } : {}) },
++    }),
++
++  performance: () =>
++    api.get<ApiResponse<CodingPerformance>>('/coding/performance/me'),
++}
++
++// ============ Roadmap (Phase 15B)
++export const roadmapApi = {
++  get: () => api.get<ApiResponse<RoadmapData>>('/roadmap/me'),
++  generate: () => api.post<ApiResponse<RoadmapData>>('/roadmap/generate'),
++  updateItem: (itemId: number, status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED') =>
++    api.patch<ApiResponse<{ id: number; status: string }>>(`/roadmap/items/${itemId}?status=${status}`),
++}
++
++// ============ Recommendations (Phase 15B)
++export const recommendationsApi = {
++  list: (limit = 10) =>
++    api.get<ApiResponse<RecommendationListData>>('/recommendations/me', { params: { limit } }),
++  generate: () => api.post<ApiResponse<{ total: number }>>('/recommendations/generate'),
++  complete: (id: number) =>
++    api.post<ApiResponse<{ id: number; status: string; completed: boolean }>>(`/recommendations/${id}/complete`),
++}
++
++// ============ Gamification (Phase 15B)
++export const gamificationApi = {
++  summary: () => api.get<ApiResponse<GamificationSummary>>('/gamification/me'),
++  missions: () => api.get<ApiResponse<MissionItem[]>>('/gamification/missions'),
++  badges: () => api.get<ApiResponse<{ earned: EarnedBadge[]; total_available: number }>>('/gamification/badges'),
++  badgeCatalog: () => api.get<ApiResponse<BadgeCatalogEntry[]>>('/gamification/badges/catalog'),
++  activity: (limit = 10) =>
++    api.get<ApiResponse<ActivityEventItem[]>>('/gamification/activity', { params: { limit } }),
++  leaderboard: (period = 'WEEKLY', limit = 25) =>
++    api.get<ApiResponse<LeaderboardRow[]>>('/gamification/leaderboard', { params: { period, limit } }),
++}
++
++// ============ AI Questions (Phase 15C)
++export const aiQuestionApi = {
++  generate: (req: { company?: string; topic_id?: number; topic_name?: string; difficulty?: string }) =>
++    api.post<ApiResponse<AIQuestion>>('/ai/questions/generate', req),
++
++  evaluate: (req: {
++    ticket: string
++    student_answer: string
++    time_taken_seconds?: number | null
++  }) => api.post<ApiResponse<AIQuestionEvaluateResult>>('/ai/questions/evaluate', req),
++}
++
++// ============ Chatbot
++export const chatApi = {
++  send: (message: string, history: ChatMessage[]) =>
++    api.post<ApiResponse<ChatResponseData>>('/ai/chat', { message, history }),
++}
++
++// ============ Admin (Phase 15D)
++export const adminApi = {
++  ping: () => api.get<ApiResponse<{ admin_id: number }>>('/admin/ping'),
++
++  users: (params: { page?: number; limit?: number; role?: string; search?: string; is_active?: boolean }) =>
++    api.get<ApiResponse<AdminUserListData>>('/admin/users', { params }),
++
++  setUserStatus: (userId: number, isActive: boolean) =>
++    api.patch<ApiResponse<{ id: number; is_active: boolean }>>(
++      `/admin/users/${userId}/status?is_active=${isActive}`,
++    ),
++
++  topics: () => api.get<ApiResponse<Topic[]>>('/admin/topics'),
++  createTopic: (name: string, category: string, description?: string) =>
++    api.post<ApiResponse<Topic>>('/admin/topics', { name, category, description }),
++  updateTopic: (id: number, data: { name?: string; category?: string; description?: string; is_active?: boolean }) =>
++    api.patch<ApiResponse<Topic>>(`/admin/topics/${id}`, data),
++
++  companies: () => api.get<ApiResponse<Company[]>>('/admin/companies'),
++  createCompany: (name: string, description?: string, website?: string) =>
++    api.post<ApiResponse<Company>>('/admin/companies', { name, description, website }),
++  updateCompany: (id: number, data: { name?: string; description?: string; website?: string; is_active?: boolean }) =>
++    api.patch<ApiResponse<Company>>(`/admin/companies/${id}`, data),
++
++  analytics: () => api.get<ApiResponse<PlatformAnalytics>>('/admin/analytics'),
++  analyticsStudents: () => api.get<ApiResponse<StudentAnalyticsRow[]>>('/admin/analytics/students'),
++  analyticsQuestions: () => api.get<ApiResponse<QuestionAnalytics>>('/admin/analytics/questions'),
++  analyticsSubmissions: () => api.get<ApiResponse<SubmissionAnalytics>>('/admin/analytics/submissions'),
++  analyticsPopularTopics: (limit = 10) =>
++    api.get<ApiResponse<PopularTopicRow[]>>('/admin/analytics/popular-topics', { params: { limit } }),
++
++  gamificationConfig: () => api.get<ApiResponse<GamificationConfig>>('/admin/gamification/config'),
++  setBadgeStatus: (badgeId: number, isActive: boolean) =>
++    api.patch<ApiResponse<{ id: number; is_active: boolean }>>(
++      `/admin/badges/${badgeId}/status?is_active=${isActive}`,
++    ),
++}
++
++// ============ Coaching (Feature Groups 1, 2, 3, 7, 10, 11)
++export const coachingApi = {
++  dashboard: () => api.get<ApiResponse<CoachingDashboard>>('/coaching/dashboard'),
++
++  dailyPlan: () => api.get<ApiResponse<DailyPlan>>('/coaching/daily-plan'),
++
++  skillGap: () => api.get<ApiResponse<SkillGapData>>('/coaching/skill-gap'),
++
++  trends: (days: 7 | 30 | 0 = 7) =>
++    api.get<ApiResponse<ProgressTrendsData>>('/coaching/trends', { params: { days } }),
++
++  revision: () => api.get<ApiResponse<RevisionFeed>>('/coaching/revision'),
++
++  revisionPractice: (count: 5 | 10 | 15 = 5) =>
++    api.post<ApiResponse<RevisionPracticeResult>>('/coaching/revision/practice', null, {
++      params: { count },
++    }),
++
++  companyProfile: (companyId: number) =>
++    api.get<ApiResponse<CompanyProfile>>(`/coaching/companies/${companyId}/profile`),
++}
++
++// ============ Adaptive difficulty (Feature Group 4)
++export const adaptiveApi = {
++  difficulty: () => api.get<ApiResponse<AdaptiveDifficulty>>('/adaptive/difficulty'),
++}
++
++// ============ Bookmarks (Feature Group 12)
++export const bookmarksApi = {
++  list: () => api.get<ApiResponse<BookmarkItem[]>>('/bookmarks'),
++
++  add: (req: { bookmark_type: 'QUESTION' | 'PROBLEM' | 'CONCEPT'; question_id?: number; problem_id?: number; note?: string }) =>
++    api.post<ApiResponse<{ id: number }>>('/bookmarks', req),
++
++  remove: (id: number) => api.delete<ApiResponse<{ id: number }>>(`/bookmarks/${id}`),
++}
++
++// ============ Interview prep (Feature Group 6)
++export const interviewApi = {
++  config: () => api.get<ApiResponse<InterviewConfig>>('/interview/config'),
++
++  questions: (category: string, difficulty = 'easy', experienceLevel = 'fresher', count = 5) =>
++    api.get<ApiResponse<InterviewQuestions>>('/interview/questions', {
++      params: { category, difficulty, experience_level: experienceLevel, count },
++    }),
++
++  evaluate: (category: string, questionId: number, answer: string) =>
++    api.post<ApiResponse<InterviewFeedback>>('/interview/evaluate', {
++      category,
++      question_id: questionId,
++      answer,
++    }),
++}
++
++// ============ Progressive hints (Feature Group 5)
++export const hintsApi = {
++  progressive: (req: { problem_text: string; topic_name?: string; level: number; source_code?: string }) =>
++    api.post<ApiResponse<{ level: number; label: string; text: string; max_level: number; remaining: number }>>(
++      '/ai/hints/progressive',
++      req,
++    ),
++}
++
++// ============ Account / Danger Zone
++export const accountApi = {
++  resetPreview: () =>
++    api.get<ApiResponse<ResetPreview>>('/account/reset/preview'),
++
++  reset: (data: { password: string; confirmation: string }) =>
++    api.post<ApiResponse<{ reset: boolean; rows_deleted: Record<string, number> }>>('/account/reset', data),
++}
++
++// ============ Teacher (demo flow)
++export const teacherApi = {
++  dashboard: () => api.get<ApiResponse<TeacherDashboardData>>('/teachers/dashboard'),
++  students: () => api.get<ApiResponse<TeacherDashboardData['students']>>('/teachers/students'),
++  addStudent: (studentId: string) =>
++    api.post<ApiResponse<{ id: number; status: string }>>('/teachers/students', { student_id: studentId }),
++}
++
+ export default api
+diff --git a/frontend/src/types/index.ts b/frontend/src/types/index.ts
+index 493f879..8a93d0e 100644
+--- a/frontend/src/types/index.ts
++++ b/frontend/src/types/index.ts
+@@ -1,11 +1,20 @@
+ // ============ Auth
+-export interface User {
++
++// Shared base so login, registration, and /auth/me stay compatible.
++export interface BaseAuthUser {
+   id: number
+   name: string
+   email: string
+   role: 'student' | 'teacher' | 'admin'
+ }
+ 
++export interface User extends BaseAuthUser {
++  // /auth/me optionally returns role-specific profile fields.
++  student_id?: string | null
++  employee_id?: string | null
++  department?: string | null
++}
++
+ export interface LoginResponse {
+   access_token: string
+   token_type: string
+@@ -18,6 +27,36 @@ export interface AuthData {
+   data: LoginResponse
+ }
+ 
++// Registration responses keep the narrower, registration-specific shapes.
++export interface StudentRegisterData {
++  student_id: string
++  name: string
++  email: string
++  role: string
++}
++
++export interface TeacherRegisterData {
++  employee_id: string | null
++  department: string | null
++  name: string
++  email: string
++  role: string
++}
++
++// Broader /auth/me payload.
++export interface CurrentUser {
++  id: number
++  name: string
++  email: string
++  role: string
++  student_id: string | null
++  employee_id: string | null
++  department: string | null
++}
++
++
++
++
+ // ============ Student Profile
+ export interface StudentProfile {
+   student_id: string
+@@ -133,6 +172,27 @@ export interface PracticeHistoryData {
+   limit: number
+ }
+ 
++// ============ Account / Danger Zone
++export interface ResetPreview {
++  practice_sessions: number
++  practice_answers: number
++  attempts: number
++  attempt_answers: number
++  coding_submissions: number
++  xp_transactions: number
++  badges: number
++  bookmarks: number
++  missions: number
++  roadmaps: number
++  roadmap_items: number
++  recommendations: number
++  topic_performance_rows: number
++  performance_snapshots: number
++  ai_answer_logs: number
++  activity_events: number
++  leaderboard_entries: number
++}
++
+ export interface OverallProgressData {
+   total_questions_attempted: number
+   total_correct: number
+@@ -262,6 +322,561 @@ export interface AttemptHistoryItem {
+   submitted_at: string | null
+ }
+ 
++// ============ Coding (Phase 15B) — matches backend /api/coding responses
++export interface CodingProblemListItem {
++  id: number
++  title: string
++  difficulty: string
++  topic_id: number | null
++  solved: boolean
++}
++
++export interface CodingProblemListData {
++  problems: CodingProblemListItem[]
++  total: number
++  page: number
++  limit: number
++}
++
++export interface CodingSampleTestCase {
++  input_data: string | null
++  expected_output: string | null
++}
++
++export interface CodingProblemDetail {
++  id: number
++  title: string
++  description: string | null
++  difficulty: string
++  topic_id: number | null
++  input_format: string | null
++  output_format: string | null
++  constraints: string | null
++  sample_test_cases: CodingSampleTestCase[]
++  solved: boolean
++}
++
++export interface CodingCaseResult {
++  index: number
++  verdict: string
++  time_ms: number
++  hidden: boolean
++  stdin?: string | null
++  expected?: string | null
++  actual?: string | null
++  stderr?: string | null
++}
++
++export interface CodingSubmissionResult {
++  id: number
++  problem_id: number
++  language: string
++  status: string
++  passed_test_cases: number
++  total_test_cases: number
++  execution_time_ms: number | null
++  error_message: string | null
++  results: CodingCaseResult[]
++}
++
++export interface CodingSubmissionHistoryItem {
++  id: number
++  problem_id: number
++  language: string
++  status: string
++  passed_test_cases: number
++  total_test_cases: number
++  created_at: string
++}
++
++export interface CodingSubmissionHistoryData {
++  submissions: CodingSubmissionHistoryItem[]
++  total: number
++  page: number
++  limit: number
++}
++
++export interface CodingPerformance {
++  problems_attempted: number
++  problems_solved: number
++  pass_rate: number | null
++  total_submissions: number
++  by_difficulty: Record<string, { solved: number; total: number }>
++}
++
++// ============ Roadmap (Phase 15B)
++export interface RoadmapItem {
++  id: number
++  topic_id: number
++  topic_name: string | null
++  sequence_order: number
++  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
++  priority: 'HIGH' | 'MEDIUM' | 'LOW'
++  reason: string | null
++  target_accuracy: number | null
++  recommended_difficulty: string | null
++  completed_at: string | null
++}
++
++export interface RoadmapData {
++  id: number
++  title: string
++  overall_progress: number
++  items: RoadmapItem[]
++  generated_at: string
++}
++
++// ============ Recommendations (Phase 15B)
++export interface Recommendation {
++  id: number
++  topic_id: number
++  topic_name: string | null
++  recommendation_type: string
++  reason: string | null
++  priority: string
++  recommended_difficulty: string | null
++  status: string
++  created_at: string
++}
++
++export interface RecommendationListData {
++  recommendations: Recommendation[]
++  total: number
++}
++
++// ============ Gamification (Phase 15B)
++export interface GamificationSummary {
++  xp: number
++  level: number
++  current_level_floor: number
++  next_level_xp: number
++  xp_to_next_level: number
++  progress_percent: number
++  current_streak: number
++  longest_streak: number
++}
++
++export interface MissionItem {
++  id: number
++  mission_id: number
++  title: string
++  description: string | null
++  mission_type: string
++  target_value: number
++  progress: number
++  status: string
++  xp_reward: number
++}
++
++export interface EarnedBadge {
++  id: number
++  badge_id: number
++  name: string
++  description: string | null
++  icon: string | null
++  earned_at: string
++}
++
++export interface BadgeCatalogEntry {
++  id: number
++  name: string
++  description: string | null
++  icon: string | null
++  criteria_type: string
++  criteria_value: number
++  xp_reward: number
++  is_active: boolean
++}
++
++export interface ActivityEventItem {
++  id: number
++  event_type: string
++  reference_id: number | null
++  metadata: Record<string, unknown> | null
++  created_at: string
++}
++
++export interface LeaderboardRow {
++  rank: number
++  student_id: string
++  name: string
++  xp: number
++}
++
++// ============ Chatbot
++export interface ChatMessage {
++  role: 'user' | 'assistant'
++  content: string
++}
++
++export interface ChatResponseData {
++  reply: string
++  model: string
++}
++
++// ============ AI Questions (Phase 15C)
++/** The correct answer is NOT sent to the client; grading uses a server-side
++ *  single-use ticket issued at generate time. */
++export interface AIQuestion {
++  question: string
++  options: string[]
++  ticket: string
++  topic_id: number | null
++  topic_name: string | null
++  company: string | null
++  difficulty: string
++  persisted: false
++}
++
++export interface AIQuestionEvaluateResult {
++  is_correct: boolean
++  correct_answer: string
++  student_answer: string
++  explanation: string | null
++  hint: string | null
++  xp_earned: number
++  xp_total: number
++  level: number
++  level_up: {
++    progress_percent: number
++    xp_to_next_level: number
++    current_level_floor: number
++    next_level_xp: number
++  }
++  current_streak: number
++  topic_accuracy: number | null
++  overall_accuracy: number | null
++  readiness_score: number
++  recorded_only_answer: boolean
++}
++
++// ============ Admin (Phase 15D)
++export interface AdminUserRow {
++  id: number
++  name: string
++  email: string
++  role: string
++  is_active: boolean
++  created_at: string
++}
++
++export interface AdminUserListData {
++  users: AdminUserRow[]
++  total: number
++  page: number
++  limit: number
++}
++
++export interface PlatformAnalytics {
++  total_students: number
++  total_teachers: number
++  total_questions: number
++  pending_questions: number
++  total_assessments: number
++  total_attempts: number
++  total_code_submissions: number
++  active_students_7d: number
++  average_accuracy: number | null
++  popular_topics: { topic_id: number; topic_name: string; students_tracked: number }[]
++}
++
++export interface StudentAnalyticsRow {
++  student_profile_id: number
++  student_id: string
++  name: string
++  email: string
++  is_active: boolean
++  accuracy: number | null
++  questions_attempted: number
++  assessment_avg_score: number | null
++  problems_solved: number
++  streak_days: number
++  xp: number
++  level: number
++  readiness_score: number
++}
++
++export interface QuestionAnalytics {
++  topics: { topic_id: number; topic_name: string; total_attempts: number; accuracy: number | null }[]
++  difficulty_distribution: Record<string, number>
++}
++
++export interface SubmissionAnalytics {
++  problems: {
++    problem_id: number
++    title: string
++    difficulty: string
++    submissions: number
++    pass_rate: number | null
++  }[]
++  language_distribution: Record<string, number>
++}
++
++export interface PopularTopicRow {
++  topic_id: number
++  topic_name: string
++  attempts: number
++}
++
++export interface GamificationConfig {
++  xp_rules: Record<string, number>
++  level_thresholds: number[]
++  streak_milestone_days: number
++  badges: BadgeCatalogEntry[]
++}
++
++// ============ Coaching (Feature Groups 1, 2, 3, 7, 10, 11)
++export interface PlanItem {
++  section: string
++  title: string
++  detail: string
++  target: number
++  progress: number
++  done: boolean
++  topic_id?: number | null
++  problem_id?: number | null
++}
++
++export interface DailyPlan {
++  day_number: number
++  date: string
++  items: PlanItem[]
++  progress_percent: number
++  xp_earned_today: number
++  xp_target: number
++  focus_topic: string | null
++}
++
++export interface SkillGapItem {
++  topic_id: number
++  topic_name: string
++  category: string | null
++  level: 'strong' | 'moderate' | 'weak'
++  accuracy: number | null
++  attempts: number
++  trend: 'IMPROVING' | 'STABLE' | 'DECLINING' | 'NEW'
++  priority_score: number
++  priority: 'HIGH' | 'MEDIUM' | 'LOW' | 'INSUFFICIENT_DATA'
++  recommended_action: string
++  last_attempted_at: string | null
++}
++
++export interface SkillGapData {
++  skills: SkillGapItem[]
++  weakest_topic: SkillGapItem | null
++  strongest_topic: SkillGapItem | null
++  improving_count: number
++  declining_count: number
++  formula: Record<string, string>
++}
++
++export interface ReadinessBreakdown {
++  score: number
++  components: Record<string, number>
++  weights: Record<string, number>
++  labels: Record<string, string>
++  aptitude: { accuracy: number; attempted: number }
++  coding: { attempted: number; solved: number }
++  assessment: { attempts: number; average_score: number | null }
++  consistency: { active_days: number; window_days: number }
++  coverage: { topics_attempted: number; topics_target: number }
++  data_completeness: number
++}
++
++export interface ContinueLearningItem {
++  kind: 'practice_session' | 'assessment_attempt' | 'roadmap_item'
++  id: number
++  label: string
++  detail: string
++  href: string
++}
++
++export interface CoachingDashboard {
++  todays_plan: DailyPlan
++  weakest_aptitude_topic: SkillGapItem | null
++  weakest_coding_topic: SkillGapItem | null
++  current_accuracy: number | null
++  coding_success_rate: number | null
++  coding_solved: number
++  coding_attempted: number
++  readiness: ReadinessBreakdown
++  streak: number
++  xp_today: number
++  xp_total: number
++  level: number
++  recent_badges: { name: string; icon: string | null; earned_at: string }[]
++  recommended_next: {
++    suggested_difficulty: string
++    reason: string
++    topic_id: number | null
++    topic_name: string | null
++  }
++  continue_learning: ContinueLearningItem[]
++  roadmap_progress: number | null
++}
++
++export interface TrendPoint {
++  date: string
++  attempted: number
++  correct: number
++  submissions: number
++  solved: number
++  accuracy: number | null
++}
++
++export interface ProgressTrendsData {
++  window_days: number
++  has_data: boolean
++  series: TrendPoint[]
++  totals: {
++    attempted: number
++    correct: number
++    accuracy: number | null
++    coding_submissions: number
++    coding_solved: number
++  }
++}
++
++export interface RevisionTopic {
++  topic_id: number
++  topic_name: string
++  accuracy: number
++  wrong_count: number
++  attempts: number
++  recently_wrong: boolean
++  declining: boolean
++  priority_score: number
++}
++
++export interface RevisionFeed {
++  topics: RevisionTopic[]
++  total: number
++}
++
++export interface RevisionPracticeResult {
++  session: PracticeStartData | null
++  message?: string
++  topic_id?: number
++  topic_name?: string
++}
++
++export interface CompanyProfile {
++  company_id: number
++  company_name: string
++  is_general_profile: boolean
++  profile_note: string
++  topics: {
++    topic_id: number
++    topic_name: string
++    category: string | null
++    available_questions: number
++    your_accuracy: number | null
++  }[]
++  coding_problems_available: number
++  questions_attempted: number
++  progress_percent: number
++}
++
++// ============ Adaptive difficulty (Feature Group 4)
++export interface AdaptiveDifficulty {
++  suggested_difficulty: 'easy' | 'medium' | 'hard'
++  window_accuracy: number | null
++  window_size: number
++  reason: string
++  algorithm: { window: number; min_answers: number; thresholds: string }
++}
++
++// ============ Bookmarks (Feature Group 12)
++export interface BookmarkItem {
++  id: number
++  bookmark_type: 'QUESTION' | 'PROBLEM' | 'CONCEPT'
++  note: string | null
++  created_at: string
++  question_id: number | null
++  problem_id: number | null
++  question_text?: string
++  topic_id?: number | null
++  difficulty?: string
++  explanation?: string | null
++  correct_answer?: string | null
++  problem_title?: string
++  problem_difficulty?: string
++}
++
++// ============ Interview prep (Feature Group 6)
++export interface InterviewConfig {
++  categories: { id: string; label: string }[]
++  difficulties: string[]
++  experience_levels: string[]
++}
++
++export interface InterviewQuestions {
++  category: string
++  category_label: string
++  difficulty: string
++  experience_level: string
++  questions: { id: number; question: string; difficulty: string }[]
++}
++
++export interface InterviewFeedback {
++  question: string
++  student_answer: string
++  expected_concepts: string[]
++  deterministic_feedback: {
++    source: 'deterministic'
++    quality: 'good' | 'partial' | 'weak'
++    score: number
++    matched_keywords: string[]
++    missing_concepts: string[]
++    suggestion: string
++  }
++  ai_feedback: { source: 'ai'; text: string } | null
++  disclaimer: string
++}
++
++// ============ Progressive hints (Feature Group 5)
++export interface ProgressiveHint {
++  level: number
++  label: string
++  text: string
++  max_level: number
++  remaining: number
++}
++
++// ============ Teacher attention list (Feature Group 16)
++export interface AttentionStudent {
++  student_profile_id: number
++  student_id: string
++  name: string
++  reasons: string[]
++  overall_accuracy: number | null
++}
++
++// ============ Teacher (Phase 15 demo)
++export interface TeacherStudentRow {
++  association_id: number
++  student_profile_id: number
++  student_id: string
++  name: string
++  email: string
++  xp: number
++  level: number
++  current_streak: number
++  overall_accuracy: number | null
++  classification: string
++  assessment_avg_score: number | null
++  questions_attempted: number
++}
++
++export interface TeacherDashboardData {
++  total_students: number
++  average_accuracy: number | null
++  average_assessment_score: number | null
++  students: TeacherStudentRow[]
++  weak_topics_class_wide: { topic_id: number; topic_name: string; count: number }[]
++  students_needing_attention?: AttentionStudent[]
++}
++
+ // ============ Generic API Response
+ export interface ApiResponse<T = unknown> {
+   success: boolean

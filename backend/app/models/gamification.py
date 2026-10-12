@@ -35,9 +35,17 @@ class StudentBadge(Base):
 
 
 class XPTransaction(Base):
-    """Auditable XP ledger; profile xp is a cached aggregate of these rows."""
+    """Auditable XP ledger; profile xp is a cached aggregate of these rows.
+
+    Unique on (student, activity_type, reference_id): DB-level idempotency for
+    event-derived rewards (reference_id is NULL for replay-safe types like
+    AI_QUESTION_CORRECT, which are protected by single-use tickets instead).
+    """
 
     __tablename__ = "xp_transactions"
+    __table_args__ = (
+        UniqueConstraint("student_id", "activity_type", "reference_id", name="uq_xp_event"),
+    )
 
     id: Mapped[int] = mapped_column(BIGINT_PK, primary_key=True, autoincrement=True)
     student_id: Mapped[int] = mapped_column(

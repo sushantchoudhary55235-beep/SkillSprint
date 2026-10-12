@@ -41,6 +41,7 @@ def test_alembic_upgrade_creates_all_tables(tmp_path):
         "leaderboards", "leaderboard_entries",
         "coding_problems", "test_cases", "code_submissions",
         "activity_events",
+        "practice_sessions", "practice_answers",
     }
     missing = expected - tables
     assert not missing, f"Tables missing from migration: {missing}"

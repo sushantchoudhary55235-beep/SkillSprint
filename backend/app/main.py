@@ -10,24 +10,56 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.routes import api_router
 from app.core.config import settings
 from app.core.exceptions import SkillSprintError
+from app.core.rate_limit import RateLimitExceededError
 
 logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger("skillsprint")
+
+# ------------------------------------------------------------------ config guard
+# Phase 15 rule: never allow_origins=["*"] in production. The allowed origins
+# always come from CORS_ORIGINS env (comma-separated) — a wildcard value is
+# refused at startup in production so a misconfiguration cannot ship.
+def validate_production_config(cfg) -> None:
+    """Refuse to boot with unsafe production configuration.
+
+    Extracted as a function so the guard is unit-testable without re-importing
+    the app module (import-time checks run when this module is loaded).
+    """
+    if not cfg.is_production:
+        return
+    origins = cfg.cors_origins
+    if not origins or "*" in origins:
+        raise RuntimeError(
+            "CORS_ORIGINS must list explicit production origins "
+            "(comma-separated) when ENVIRONMENT=production — '*' is not allowed."
+        )
+    # Audit fix (M1): a default JWT secret in production means every token is
+    # forgeable — the exact failure the CORS guard exists to prevent. Fail at
+    # startup, mirroring the CORS rule, so a forgotten .env cannot ship.
+    if cfg.JWT_SECRET_KEY in ("change-me-to-a-long-random-secret", "", "secret", "changeme"):
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be set to a long random value when "
+            "ENVIRONMENT=production — the default secret is not deployable."
+        )
+
+
+validate_production_config(settings)
+_cors_origins = settings.cors_origins
 
 app = FastAPI(
     title=settings.APP_NAME,
     version="0.1.0",
     description="Gamified AI-powered placement-readiness and personalized learning platform.",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if not settings.is_production else None,
+    openapi_url="/openapi.json" if not settings.is_production else None,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(api_router, prefix="/api")
@@ -44,6 +76,16 @@ _ERROR_CODE_BY_STATUS = {
     status.HTTP_500_INTERNAL_SERVER_ERROR: "INTERNAL_ERROR",
     status.HTTP_503_SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
 }
+
+
+@app.exception_handler(RateLimitExceededError)
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceededError) -> JSONResponse:
+    """AI quota exhaustion returns 429 with the standard error envelope."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "message": exc.message, "error_code": exc.error_code},
+        headers={"Retry-After": str(exc.retry_after_seconds)},
+    )
 
 
 @app.exception_handler(StarletteHTTPException)

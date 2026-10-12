@@ -25,28 +25,41 @@ def _get_question_service(db: Session = Depends(get_db)) -> QuestionService:
 
 
 # ---------------------------------------------------------------- topics
-@router.get("/topics", response_model=list[TopicRead])
+@router.get("/topics")
 def list_topics(
     category: str | None = Query(default=None),
     service: ContentService = Depends(_get_content_service),
 ):
-    return service.list_topics(category=category)
+    """Standard {success, message, data} envelope (contract fix)."""
+    return success_response(
+        data=[TopicRead.model_validate(t) for t in service.list_topics(category=category)],
+        message="Topics retrieved",
+    )
 
 
-@router.get("/topics/{topic_id}", response_model=TopicRead)
+@router.get("/topics/{topic_id}")
 def get_topic(topic_id: int, service: ContentService = Depends(_get_content_service)):
-    return service.get_topic(topic_id)
+    return success_response(
+        data=TopicRead.model_validate(service.get_topic(topic_id)),
+        message="Topic retrieved",
+    )
 
 
 # --------------------------------------------------------------- companies
-@router.get("/companies", response_model=list[CompanyRead])
+@router.get("/companies")
 def list_companies(service: ContentService = Depends(_get_content_service)):
-    return service.list_companies()
+    return success_response(
+        data=[CompanyRead.model_validate(c) for c in service.list_companies()],
+        message="Companies retrieved",
+    )
 
 
-@router.get("/companies/{company_id}", response_model=CompanyRead)
+@router.get("/companies/{company_id}")
 def get_company(company_id: int, service: ContentService = Depends(_get_content_service)):
-    return service.get_company(company_id)
+    return success_response(
+        data=CompanyRead.model_validate(service.get_company(company_id)),
+        message="Company retrieved",
+    )
 
 
 # ---------------------------------------------------------------- questions

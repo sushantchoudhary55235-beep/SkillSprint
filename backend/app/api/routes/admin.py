@@ -10,7 +10,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
-from app.schemas.content import CompanyCreate, CompanyRead, TopicCreate, TopicRead
+from app.schemas.content import (
+    CompanyCreate,
+    CompanyRead,
+    CompanyUpdate,
+    TopicCreate,
+    TopicRead,
+    TopicUpdate,
+)
 from app.schemas.question import (
     QuestionCreate,
     QuestionListParams,
@@ -19,6 +26,7 @@ from app.schemas.question import (
     QuestionUpdate,
 )
 from app.services.content import ContentService
+from app.services.admin import AdminService
 from app.services.question import QuestionService
 from app.utils.responses import success_response
 
@@ -31,6 +39,10 @@ def _get_question_service(db: Session = Depends(get_db)) -> QuestionService:
 
 def _get_content_service(db: Session = Depends(get_db)) -> ContentService:
     return ContentService(db)
+
+
+def _get_admin_service(db: Session = Depends(get_db)) -> AdminService:
+    return AdminService(db)
 
 
 # ---------------------------------------------------------------- ping
@@ -197,3 +209,159 @@ def create_company(
         message="Company created",
         status_code=201,
     )
+
+
+@router.patch("/companies/{company_id}")
+def update_company(
+    company_id: int,
+    data: CompanyUpdate,
+    user: Annotated[object, Depends(require_admin)],
+    service: ContentService = Depends(_get_content_service),
+):
+    """Edit a company or deactivate it (is_active=false hides it from students)."""
+    company = service.update_company(
+        company_id,
+        name=data.name,
+        description=data.description,
+        website=data.website,
+        is_active=data.is_active,
+    )
+    return success_response(
+        data=CompanyRead.model_validate(company),
+        message="Company updated",
+    )
+
+
+# ================================================================ TOPIC EDIT/DEACTIVATE (Phase 13)
+
+@router.patch("/topics/{topic_id}")
+def update_topic(
+    topic_id: int,
+    data: TopicUpdate,
+    user: Annotated[object, Depends(require_admin)],
+    service: ContentService = Depends(_get_content_service),
+):
+    """Edit a topic or deactivate it (is_active=false hides it from students)."""
+    topic = service.update_topic(
+        topic_id,
+        name=data.name,
+        category=data.category,
+        description=data.description,
+        is_active=data.is_active,
+    )
+    return success_response(
+        data=TopicRead.model_validate(topic),
+        message="Topic updated",
+    )
+
+
+# ================================================================ USER MANAGEMENT (Phase 13)
+
+@router.get("/users")
+def list_users(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+    role: str | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=100),
+    is_active: bool | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """View/search users; filter by role and active status."""
+    data = service.list_users(role=role, search=search, is_active=is_active, page=page, limit=limit)
+    return success_response(data=data, message="Users retrieved")
+
+
+@router.patch("/users/{user_id}/status")
+def set_user_status(
+    user_id: int,
+    is_active: bool,
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Activate/deactivate a user. Deactivated users fail auth with 401."""
+    target = service.set_user_active(user_id, is_active)
+    return success_response(
+        data={"id": target.id, "is_active": target.is_active},
+        message="User activated" if target.is_active else "User deactivated",
+    )
+
+
+# ================================================================ BADGES (Phase 15D)
+
+@router.patch("/badges/{badge_id}/status")
+def set_badge_status(
+    badge_id: int,
+    is_active: bool,
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Enable/disable a badge rule (active badges are auto-awarded)."""
+    badge = service.toggle_badge(badge_id, is_active)
+    return success_response(
+        data={"id": badge.id, "name": badge.name, "is_active": badge.is_active},
+        message="Badge enabled" if badge.is_active else "Badge disabled",
+    )
+
+
+# ================================================================ ANALYTICS (Phase 13)
+
+@router.get("/analytics")
+def platform_analytics(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Platform-wide counters and aggregates (docs/Phases.md §17)."""
+    data = service.analytics()
+    return success_response(data=data, message="Platform analytics retrieved")
+
+
+# ================================================================ ANALYTICS BREAKDOWNS (Phase 15D)
+
+@router.get("/analytics/students")
+def analytics_students(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Per-student accuracy, readiness, streak, XP for the admin analytics view."""
+    return success_response(data=service.students_overview(), message="Student analytics retrieved")
+
+
+@router.get("/analytics/questions")
+def analytics_questions(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Most attempted topics, accuracy per topic, difficulty distribution."""
+    return success_response(data=service.question_analytics(), message="Question analytics retrieved")
+
+
+@router.get("/analytics/submissions")
+def analytics_submissions(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Pass rate per problem, most attempted problems, language distribution."""
+    return success_response(data=service.coding_analytics(), message="Coding submission analytics retrieved")
+
+
+@router.get("/analytics/popular-topics")
+def analytics_popular_topics(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+    limit: int = Query(default=10, ge=1, le=50),
+):
+    """Top attempted topics this week (for the bar chart)."""
+    return success_response(data=service.popular_topics_week(limit=limit), message="Popular topics retrieved")
+
+
+# ================================================================ GAMIFICATION CONFIG (Phase 13)
+
+@router.get("/gamification/config")
+def gamification_config(
+    user: Annotated[object, Depends(require_admin)],
+    service: AdminService = Depends(_get_admin_service),
+):
+    """Current XP rules, level curve, streak milestones and badge catalogue."""
+    data = service.gamification_config()
+    return success_response(data=data, message="Gamification configuration retrieved")

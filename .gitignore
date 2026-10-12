@@ -18,6 +18,7 @@ venv/
 htmlcov/
 backend/.env
 *.db
+*.db.bak*
 *.sqlite3
 
 # --- Node / frontend ---

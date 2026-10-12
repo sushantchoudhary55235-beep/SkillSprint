@@ -14,6 +14,13 @@ class TopicCreate(TopicBase):
     pass
 
 
+class TopicUpdate(BaseModel):
+    name: str | None = None
+    category: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+
+
 class TopicRead(TopicBase):
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +37,13 @@ class CompanyBase(BaseModel):
 
 class CompanyCreate(CompanyBase):
     pass
+
+
+class CompanyUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    website: str | None = None
+    is_active: bool | None = None
 
 
 class CompanyRead(CompanyBase):

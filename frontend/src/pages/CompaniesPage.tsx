@@ -15,7 +15,7 @@ export default function CompaniesPage() {
   }, [])
 
   const startPractice = (companyId: number) => {
-    navigate(`/practice?company_id=${companyId}`)
+    navigate(`/student/practice?company_id=${companyId}`)
   }
 
   if (error) return <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>

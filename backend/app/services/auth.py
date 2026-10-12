@@ -9,6 +9,8 @@ Registration rules:
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import logging
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,8 @@ from app.schemas.auth import (
 )
 
 _STUDENT_ID_PREFIX = "SS"
+
+logger = logging.getLogger("skillsprint.auth")
 
 
 def _current_year_short() -> str:
@@ -92,9 +96,14 @@ class AuthService:
     def login(self, req: LoginRequest) -> LoginData:
         user = self.db.scalar(select(User).where(User.email == req.email.lower()))
         # Same message for unknown email and wrong password (no account enumeration).
+        # Observability (Phase 23): failures are logged WITHOUT the attempted
+        # password or any credential material — email (an identifier, not a
+        # secret) is included so repeated failures are traceable.
         if user is None or not verify_password(req.password, user.password_hash):
+            logger.warning("Login failed: unknown email or wrong password (email=%s)", req.email.lower())
             raise AuthError("Incorrect email or password")
         if not user.is_active:
+            logger.warning("Login rejected: deactivated account (email=%s)", req.email.lower())
             raise AuthError("Account is deactivated")
 
         token = create_access_token(str(user.id), extra={"role": user.role, "email": user.email})

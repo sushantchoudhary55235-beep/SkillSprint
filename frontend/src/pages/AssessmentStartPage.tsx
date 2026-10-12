@@ -22,7 +22,7 @@ export default function AssessmentStartPage() {
     setError('')
     try {
       const res = await assessmentApi.start(Number(id))
-      navigate(`/attempts/${res.data.data.attempt_id}`)
+      navigate(`/student/attempts/${res.data.data.attempt_id}`)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setError(msg || 'Failed to start assessment')
@@ -35,7 +35,7 @@ export default function AssessmentStartPage() {
     return (
       <div className="max-w-lg mx-auto space-y-4">
         <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
-        <button onClick={() => navigate('/assessments')} className="text-indigo-600 hover:underline text-sm">
+        <button onClick={() => navigate('/student/assessments')} className="text-indigo-600 hover:underline text-sm">
           ← Back to assessments
         </button>
       </div>
@@ -46,7 +46,7 @@ export default function AssessmentStartPage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <button onClick={() => navigate('/assessments')} className="text-sm text-slate-500 hover:text-indigo-600">
+      <button onClick={() => navigate('/student/assessments')} className="text-sm text-slate-500 hover:text-indigo-600">
         ← Back to assessments
       </button>
 

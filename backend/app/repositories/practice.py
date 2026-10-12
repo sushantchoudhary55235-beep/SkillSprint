@@ -158,6 +158,24 @@ class PracticeRepository:
             )
         )
 
+    def get_latest_daily_quiz_session(self, student_id: int) -> PracticeSession | None:
+        """Most recent DAILY_QUIZ session (completed included) for resume.
+
+        A daily quiz should be resumable at most once per day: after it is
+        completed, the next call must create a fresh session instead of
+        handing back the finished one. Ordering by id desc also makes this
+        deterministic when more than one exists.
+        """
+        return self.db.scalar(
+            select(PracticeSession)
+            .where(
+                PracticeSession.student_id == student_id,
+                PracticeSession.mode == "DAILY_QUIZ",
+            )
+            .order_by(PracticeSession.id.desc())
+            .limit(1)
+        )
+
     # ---------- commit ----------
 
     def commit(self) -> None:

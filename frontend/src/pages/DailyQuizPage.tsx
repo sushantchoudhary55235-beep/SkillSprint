@@ -9,7 +9,9 @@ export default function DailyQuizPage() {
   useEffect(() => {
     practiceApi.dailyQuiz()
       .then((res) => {
-        navigate(`/practice?daily_session=${res.data.data.session_id}`)
+        // `session_id` is the param PracticePage consumes to resume an
+        // in-progress session (`daily_session` never existed — audit fix H1).
+        navigate(`/student/practice?session_id=${res.data.data.session_id}`)
       })
       .catch((err) => {
         setError(err.response?.data?.message || 'Failed to start daily quiz')

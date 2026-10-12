@@ -1132,14 +1132,28 @@ Admin permissions include:
 
 # 23. AI APIs
 
-AI functionality must be accessed through the backend.
+AI functionality must be accessed through the backend. All endpoints are
+STUDENT-only, rate-limited to `AI_RATE_LIMIT_PER_MINUTE` (default 10)
+requests per user per minute → `429 RATE_LIMITED` with `Retry-After`, and
+degrade to `503 SERVICE_UNAVAILABLE` when Gemini is unconfigured or fails.
 
 ```text
-POST /api/ai/generate-question
-POST /api/ai/explain-answer
-POST /api/ai/generate-hint
-POST /api/ai/analyze-performance
+POST /api/ai/explain                    question_text, correct_answer?, explanation?, topic_name? → {text}
+POST /api/ai/hint                       question_text, topic_name? → {text}
+POST /api/ai/performance-interpretation — → {text, facts}   (facts computed server-side)
+POST /api/ai/chat                       message, history? (≤10 turns) → {reply, model}
+POST /api/ai/questions/generate         topic_id?/topic_name?, company?, difficulty → {question, options, ticket, ...}
+POST /api/ai/questions/evaluate         ticket, student_answer, time_taken_seconds? → evaluation
 ```
+
+**Answer-key security:** `/ai/questions/generate` does NOT return the correct
+answer. The backend stores it server-side behind an opaque single-use ticket
+(30-minute TTL, per-student). `/ai/questions/evaluate` consumes the ticket and
+grades server-side — a client can never self-grade. The correct answer and
+explanation are revealed only in the evaluate response after answering.
+
+AI-generated questions are never persisted; `ai_answer_logs` stores only the
+answer OUTCOME (topic, correctness, XP). Chat content is never stored.
 
 The backend AI service communicates with Gemini.
 

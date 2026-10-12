@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { practiceApi } from '../services/api'
-import type { PracticeStartData, PracticeAnswerData, PracticeCompleteData, QuestionForPractice } from '../types'
+import { adaptiveApi, bookmarksApi, practiceApi } from '../services/api'
+import type { AdaptiveDifficulty, PracticeStartData, PracticeAnswerData, PracticeCompleteData, QuestionForPractice } from '../types'
 
 type Phase = 'config' | 'playing' | 'result'
 
@@ -10,6 +10,7 @@ export default function PracticePage() {
   const navigate = useNavigate()
   const topicId = searchParams.get('topic_id') ? Number(searchParams.get('topic_id')) : undefined
   const companyId = searchParams.get('company_id') ? Number(searchParams.get('company_id')) : undefined
+  const resumeSessionId = searchParams.get('session_id') ? Number(searchParams.get('session_id')) : null
 
   const [phase, setPhase] = useState<Phase>('config')
   const [session, setSession] = useState<PracticeStartData | null>(null)
@@ -23,8 +24,10 @@ export default function PracticePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Difficulty selection
-  const [difficulty, setDifficulty] = useState<string>('')
+  // Difficulty selection ('adaptive' uses the server recommendation)
+  const [difficulty, setDifficulty] = useState<string>('adaptive')
+  const [adaptive, setAdaptive] = useState<AdaptiveDifficulty | null>(null)
+  const [bookmarked, setBookmarked] = useState<Record<number, boolean>>({})
 
   // Timer
   useEffect(() => {
@@ -33,6 +36,46 @@ export default function PracticePage() {
     return () => clearInterval(interval)
   }, [phase])
 
+  // Adaptive difficulty recommendation (Feature Group 4)
+  useEffect(() => {
+    adaptiveApi.difficulty().then((r) => setAdaptive(r.data.data)).catch(() => setAdaptive(null))
+  }, [])
+
+  // Resume an in-progress session linked from the dashboard (Feature Group 1)
+  useEffect(() => {
+    if (!resumeSessionId) return
+    setLoading(true)
+    practiceApi.history(1, 50)
+      .then((res) => {
+        const target = res.data.data.sessions.find(
+          (s) => s.id === resumeSessionId && s.status === 'IN_PROGRESS',
+        )
+        if (!target) return // stale link: session was completed or removed
+        // Rebuild the answering surface for the remaining (unanswered) questions.
+        return practiceApi.start({ topic_id: target.topic_id ?? undefined, company_id: target.company_id ?? undefined, question_count: Math.max(1, target.question_count - target.correct_count - target.incorrect_count) })
+          .then((r) => {
+            setSession(r.data.data)
+            setCurrentIdx(0)
+            setAnswers({})
+            setTimer(0)
+            setQuestionStartTime(Date.now())
+            setPhase('playing')
+          })
+      })
+      .catch(() => setError('Could not resume session — starting fresh is fine.'))
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeSessionId])
+
+  const bookmarkQuestion = async (questionId: number) => {
+    try {
+      await bookmarksApi.add({ bookmark_type: 'QUESTION', question_id: questionId })
+      setBookmarked((prev) => ({ ...prev, [questionId]: true }))
+    } catch {
+      /* duplicate bookmarks are idempotent server-side; ignore errors */
+    }
+  }
+
   const startSession = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -40,7 +83,7 @@ export default function PracticePage() {
       const res = await practiceApi.start({
         topic_id: topicId,
         company_id: companyId,
-        difficulty: difficulty || undefined,
+        difficulty: difficulty === 'adaptive' ? (adaptive?.suggested_difficulty ?? undefined) : (difficulty || undefined),
         question_count: 10,
       })
       setSession(res.data.data)
@@ -118,17 +161,22 @@ export default function PracticePage() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty (optional)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty</label>
             <select
               value={difficulty}
               onChange={(e) => setDifficulty(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              aria-label="Practice difficulty"
             >
+              <option value="adaptive">Adaptive{adaptive ? ` (${adaptive.suggested_difficulty})` : ''}</option>
               <option value="">Any</option>
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
             </select>
+            {adaptive && difficulty === 'adaptive' && (
+              <p className="text-xs text-slate-500 mt-1">{adaptive.reason}</p>
+            )}
           </div>
 
           <button
@@ -198,7 +246,7 @@ export default function PracticePage() {
           <button onClick={() => { setPhase('config'); setResult(null) }} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg font-medium hover:bg-slate-200 transition-colors">
             Practice Again
           </button>
-          <button onClick={() => navigate('/dashboard')} className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+          <button onClick={() => navigate('/student/dashboard')} className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
             Dashboard
           </button>
         </div>
@@ -268,10 +316,25 @@ export default function PracticePage() {
           })}
         </div>
 
-        {/* Explanation */}
-        {ans?.explanation && (
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-            💡 {ans.explanation}
+        {/* Explanation + bookmark (Feature Group 12) */}
+        {ans && (
+          <div className="mt-4 flex items-start justify-between gap-3">
+            {ans.explanation && (
+              <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex-1">
+                💡 {ans.explanation}
+              </div>
+            )}
+            <button
+              onClick={() => bookmarkQuestion(currentQuestion.id)}
+              disabled={bookmarked[currentQuestion.id]}
+              className={`text-xs shrink-0 px-2 py-1 rounded-lg border ${
+                bookmarked[currentQuestion.id]
+                  ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
+                  : 'border-slate-200 text-slate-500 hover:border-yellow-300 hover:text-yellow-600'
+              }`}
+            >
+              {bookmarked[currentQuestion.id] ? '🔖 Saved' : '🔖 Save'}
+            </button>
           </div>
         )}
       </div>

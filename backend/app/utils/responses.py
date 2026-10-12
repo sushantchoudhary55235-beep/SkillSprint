@@ -4,6 +4,8 @@ Every endpoint returns:
     { "success": bool, "message": str, "data": ... }
 per docs/API_Specification.md §6.
 """
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import status
@@ -19,6 +21,12 @@ def _serialize(data: Any) -> Any:
         return [_serialize(item) for item in data]
     if isinstance(data, dict):
         return {key: _serialize(value) for key, value in data.items()}
+    if isinstance(data, datetime):
+        return data.isoformat()
+    if isinstance(data, date):
+        return data.isoformat()
+    if isinstance(data, Decimal):
+        return float(data)
     return data
 
 

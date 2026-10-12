@@ -19,9 +19,13 @@ _MIN_PASSWORD_LENGTH = 8
 # login-time comparison matches what was hashed rather than silently truncating.
 _MAX_PASSWORD_BYTES = 72
 
+# Cost factor is configurable so tests can drop it (4 is bcrypt's minimum) and
+# keep the suite fast; production always uses the default of 12.
+BCRYPT_ROUNDS = max(4, min(15, settings.BCRYPT_ROUNDS))
+
 
 def hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -52,5 +56,15 @@ def create_access_token(subject: str, extra: dict[str, Any] | None = None) -> st
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    """Decode and verify a JWT, raising JWTError on tamper/expiry."""
-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    """Decode and verify a JWT, raising JWTError on tamper/expiry.
+
+    ``exp`` and ``sub`` are mandatory claims: a token without an expiry would
+    otherwise be accepted forever, and a token without a subject cannot
+    identify a user.
+    """
+    return jwt.decode(
+        token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+        options={"require_exp": True, "require_sub": True},
+    )

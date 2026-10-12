@@ -32,7 +32,14 @@ def get_current_user(
     subject = payload.get("sub")
     if subject is None:
         raise AuthError("Invalid token payload")
-    user = db.get(User, int(subject))
+    try:
+        user_id = int(subject)
+    except (TypeError, ValueError):
+        # A validly-signed token whose sub is not a numeric user id (e.g.
+        # minted by another service sharing the JWT secret) must be rejected
+        # with 401, not crash the request with a 500.
+        raise AuthError("Invalid token payload")
+    user = db.get(User, user_id)
     if user is None:
         raise AuthError("User no longer exists")
     if not user.is_active:

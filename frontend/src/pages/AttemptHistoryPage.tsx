@@ -25,7 +25,7 @@ export default function AttemptHistoryPage() {
       {attempts.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
           No assessment attempts yet.
-          <Link to="/assessments" className="block mt-2 text-indigo-600 hover:underline text-sm">
+          <Link to="/student/assessments" className="block mt-2 text-indigo-600 hover:underline text-sm">
             Take an assessment →
           </Link>
         </div>
@@ -34,7 +34,7 @@ export default function AttemptHistoryPage() {
           {attempts.map((a) => (
             <Link
               key={a.id}
-              to={a.status === 'SUBMITTED' ? `/attempts/${a.id}/result` : `/attempts/${a.id}`}
+              to={a.status === 'SUBMITTED' ? `/student/attempts/${a.id}/result` : `/student/attempts/${a.id}`}
               className="block bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all"
             >
               <div className="flex items-center justify-between">

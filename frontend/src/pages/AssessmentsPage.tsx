@@ -31,7 +31,7 @@ export default function AssessmentsPage() {
           {assessments.map((a) => (
             <Link
               key={a.id}
-              to={`/assessments/${a.id}/start`}
+              to={`/student/assessments/${a.id}/start`}
               className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all"
             >
               <div className="flex items-center justify-between">

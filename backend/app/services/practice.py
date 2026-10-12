@@ -34,10 +34,13 @@ from app.schemas.practice import (
 )
 from app.services.content import ContentService
 
-# XP rules (Phase 5 lightweight gamification)
-_XP_CORRECT_ANSWER = 5
-_XP_COMPLETE_SESSION_BONUS = 25
-_XP_DAILY_QUIZ_BONUS = 50
+# XP rules (docs/Phases.md §14.1) — single source of truth lives in the
+# gamification service; these aliases preserve the Phase 5 test expectations.
+from app.services.gamification import (
+    XP_COMPLETE_SESSION_BONUS as _XP_COMPLETE_SESSION_BONUS,
+    XP_CORRECT_ANSWER as _XP_CORRECT_ANSWER,
+    XP_DAILY_QUIZ_BONUS as _XP_DAILY_QUIZ_BONUS,
+)
 
 
 class PracticeService:
@@ -193,20 +196,46 @@ class PracticeService:
         score = round((session.correct_count / total) * 100) if total > 0 else 0
         accuracy = round((session.correct_count / total) * 100, 2) if total > 0 else 0
 
-        # Calculate XP
-        xp = session.correct_count * _XP_CORRECT_ANSWER
-        xp += _XP_COMPLETE_SESSION_BONUS
-        if session.mode == "DAILY_QUIZ":
-            xp += _XP_DAILY_QUIZ_BONUS
-
+        # Finalize the session FIRST so badge/mission rules see the completed
+        # session (docs/Phases.md §14: rewards reflect real activity).
         session.score = score
-        session.xp_earned = xp
+        session.xp_earned = 0
         session.status = "COMPLETED"
         session.completed_at = datetime.now(timezone.utc)
+        self.repo.flush()
 
-        # Update student XP
-        student.xp += xp
-        student.level = self._calc_level(student.xp)
+        # Phase 10: XP via the auditable ledger (same rule values as before),
+        # streak update, mission progress, and badge evaluation.
+        from app.services.gamification import (
+            XP_COMPLETE_SESSION_BONUS,
+            XP_CORRECT_ANSWER,
+            XP_DAILY_QUIZ_BONUS,
+            GamificationService,
+        )
+
+        gam = GamificationService(self.db)
+        xp = session.correct_count * XP_CORRECT_ANSWER
+        xp += XP_COMPLETE_SESSION_BONUS
+        if session.mode == "DAILY_QUIZ":
+            xp += XP_DAILY_QUIZ_BONUS
+
+        gam.award_xp(
+            student, xp, "PRACTICE_COMPLETE", reference_id=session.id,
+            description=f"Practice session #{session.id} ({session.mode})",
+        )
+        gam.touch_streak(student)
+        gam.update_mission_progress(student, "ANSWER_QUESTION", increment=session.correct_count + session.incorrect_count)
+        gam.update_mission_progress(student, "COMPLETE_PRACTICE", increment=1)
+        if session.mode == "DAILY_QUIZ":
+            gam.update_mission_progress(student, "COMPLETE_DAILY_QUIZ", increment=1)
+        gam.evaluate_badges(student)
+
+        session.xp_earned = xp
+
+        # Feature Group 9: readiness recomputed from real activity after events.
+        from app.services.readiness import sync_profile_readiness
+
+        sync_profile_readiness(self.db, student)
 
         self.repo.commit()
 
@@ -279,10 +308,20 @@ class PracticeService:
     # ============================================================ DAILY QUIZ
 
     def start_daily_quiz(self, student: StudentProfile) -> PracticeStartData:
-        """Start or resume a daily quiz for the student."""
-        existing = self.repo.get_daily_quiz_session(student.id)
+        """Start or resume the student's daily quiz.
+
+        Resume rule (audit fix): only a session still IN_PROGRESS resumes; a
+        completed daily quiz is never handed back, so one quiz per day means
+        one *playable* quiz per day. Sessions are created idempotently while
+        in progress so repeated starts/refreshes are safe.
+        """
+        existing = self.repo.get_latest_daily_quiz_session(student.id)
         if existing and existing.status == "IN_PROGRESS":
-            # Resume: return existing session questions
+            # Resume: return existing session questions.
+            # The session's question set is only recorded via its answers, so
+            # rebuild from answers; if the student refreshed before answering
+            # anything there is nothing to rebuild — hand back an equivalent
+            # fresh set of the same size so a mid-quiz refresh stays playable.
             questions = []
             for ans in existing.answers:
                 q = self.db.get(Question, ans.question_id)
@@ -296,6 +335,8 @@ class PracticeService:
                             options=[QuestionOptionOut.model_validate(o) for o in q.options],
                         )
                     )
+            if not questions:
+                questions = self.repo.get_random_questions(count=existing.question_count)
             return PracticeStartData(
                 session_id=existing.id,
                 mode="DAILY_QUIZ",

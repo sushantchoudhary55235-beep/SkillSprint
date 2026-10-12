@@ -12,8 +12,8 @@ class Leaderboard(Base):
 
     id: Mapped[int] = mapped_column(BIGINT_PK, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False)
-    scope: Mapped[str] = mapped_column(String(30), nullable=False)  # GLOBAL/CLASS/TEACHER
-    period_type: Mapped[str] = mapped_column(String(30), nullable=False)  # DAILY/WEEKLY/MONTHLY/ALL_TIME
+    scope: Mapped[str] = mapped_column(String(30), nullable=False)  # GLOBAL (CLASS/TEACHER reserved for future)
+    period_type: Mapped[str] = mapped_column(String(30), nullable=False)  # WEEKLY/MONTHLY/ALL_TIME
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
 

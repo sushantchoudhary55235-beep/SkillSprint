@@ -32,6 +32,11 @@ class TopicRepository:
         self.db.refresh(topic)
         return topic
 
+    def save(self, topic: Topic) -> Topic:
+        self.db.commit()
+        self.db.refresh(topic)
+        return topic
+
 
 class CompanyRepository:
     def __init__(self, db: Session) -> None:
@@ -51,6 +56,11 @@ class CompanyRepository:
 
     def create(self, company: Company) -> Company:
         self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+        return company
+
+    def save(self, company: Company) -> Company:
         self.db.commit()
         self.db.refresh(company)
         return company

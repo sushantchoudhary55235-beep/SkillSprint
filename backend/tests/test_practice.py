@@ -498,6 +498,46 @@ class TestDailyQuiz:
         session_id_2 = resp2.json()["data"]["session_id"]
         assert session_id_1 == session_id_2  # same session resumed
 
+    def test_daily_quiz_not_resumed_after_completion(self, client, db):
+        """Audit fix H1: a COMPLETED daily quiz must not be handed back as a
+        new session — the next start after completion creates a fresh one."""
+        student_token, admin_token, topic, company = _full_setup(client, db)
+        resp1 = client.post("/api/students/quiz/daily/start", headers=_auth(student_token))
+        assert resp1.status_code == 201
+        session_id = resp1.json()["data"]["session_id"]
+        questions = resp1.json()["data"]["questions"]
+
+        # Answer every question (correctness irrelevant here) and complete.
+        for q in questions:
+            ans = client.post(
+                f"/api/students/practice/{session_id}/answer",
+                json={"question_id": q["id"], "selected_option_id": q["options"][0]["id"]},
+                headers=_auth(student_token),
+            )
+            assert ans.status_code == 200, ans.text
+        comp = client.post(f"/api/students/practice/{session_id}/complete", headers=_auth(student_token))
+        assert comp.status_code == 200, comp.text
+
+        resp2 = client.post("/api/students/quiz/daily/start", headers=_auth(student_token))
+        assert resp2.status_code == 201, resp2.text
+        assert resp2.json()["data"]["session_id"] != session_id
+        assert len(resp2.json()["data"]["questions"]) == len(questions)
+
+    def test_daily_quiz_resume_before_any_answer(self, client, db):
+        """Resuming before answering anything must still return a playable
+        question set (same size), not an empty list."""
+        student_token, admin_token, topic, company = _full_setup(client, db)
+        resp1 = client.post("/api/students/quiz/daily/start", headers=_auth(student_token))
+        assert resp1.status_code == 201
+        session_id = resp1.json()["data"]["session_id"]
+        count = len(resp1.json()["data"]["questions"])
+        assert count > 0
+
+        resp2 = client.post("/api/students/quiz/daily/start", headers=_auth(student_token))
+        assert resp2.status_code == 201
+        assert resp2.json()["data"]["session_id"] == session_id
+        assert len(resp2.json()["data"]["questions"]) == count
+
 
 # ============================================================ OWNERSHIP / ISOLATION
 

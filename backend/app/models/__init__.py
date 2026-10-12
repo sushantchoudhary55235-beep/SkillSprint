@@ -19,6 +19,8 @@ from app.models.leaderboard import Leaderboard, LeaderboardEntry
 from app.models.coding import CodingProblem, CodeSubmission, TestCase
 from app.models.activity import ActivityEvent
 from app.models.practice import PracticeAnswer, PracticeSession
+from app.models.ai_answer_log import AIAnswerLog
+from app.models.bookmark import Bookmark
 
 __all__ = [
     "Base",
@@ -53,4 +55,6 @@ __all__ = [
     "ActivityEvent",
     "PracticeSession",
     "PracticeAnswer",
+    "AIAnswerLog",
+    "Bookmark",
 ]

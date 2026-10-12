@@ -45,3 +45,10 @@ class ForbiddenError(SkillSprintError):
 
     status_code = 403
     error_code = "FORBIDDEN"
+
+
+class ServiceUnavailableError(SkillSprintError):
+    """A dependency (e.g. AI service) is unavailable or unconfigured (503)."""
+
+    status_code = 503
+    error_code = "SERVICE_UNAVAILABLE"
