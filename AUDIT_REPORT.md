@@ -112,7 +112,7 @@ the existing test suite / a `TestClient` smoke script.
 
 | Area | Status | Evidence |
 |---|---|---|
-| Frontend | **Partially implemented / incomplete** | `npm run build` is configured (`tsc -b && vite build`), but the tree contains no `vite.config.ts`, no `tsconfig.json`, no `index.html`, no `src/main.tsx` runner, and no `README`/`package.json` scripts to actually run it in this environment. `final_frontend_tsc.out` exists (from a reference build) but no lockfile was confirmed present in this check (see §G limitation). |
+| Frontend | **Partially implemented / incomplete** | `npm run build` is configured (`tsc -b && vite build`); this sprint verified `node_modules/` present and the production build runs clean (vite v6.4.3, `dist/` emitted). Frontend pages exist (student/teacher/admin) but several feature UI paths are only half-wired to their API and were not visually run in a browser during the audit. |
 | Frontend pages | **Partially implemented** | `frontend/src/pages/admin/`, `student/`, `teacher/` pages exist, but many pages (Analytics, SkillGap, Revision, BookMark, Interview) reference backend routes that are implemented but whose UI props/state were not verified against the API contract. |
 | Live AI (Gemini) | **UNABLE TO VERIFY / mocked** | No live API call was made in this audit (security rule). `AIService` maps every failure to `ServiceUnavailableError` (503). Live behavior can only be confirmed by a developer with `GEMINI_API_KEY` set. |
 | Teacher login demo | **BROKEN at bootstrap** | `auth("teacher@skillsprint.com")` → 401 `Incorrect email or password` in the smoke script. The demo seed does not create the `teacher@skillsprint.com` account that `seed.py` documents. |
@@ -127,13 +127,13 @@ the existing test suite / a `TestClient` smoke script.
 
 | Command | Result |
 |---|---|
-| `cd backend && python -m pytest -q` | **307 passed, 1 warning, 0 failed** (48.9 s) |
+| `cd backend && python -m pytest -q` | **314 passed, 1 warning, 0 failed** (85.5 s). Includes the 7 new demo-bootstrap tests in `TestRoleBootstrapDEMO`. |
 | `cd frontend && npx tsc --noEmit` | **exit 0** (clean type-check) |
-| Runtime `TestClient` smoke of roles | `GET /api/health` → 200 `{"status":"ok","app":"SkillSprint API","environment":"development"}`; `GET /api/admin/ping` (no token) → 401; with admin token → 200 `{"success":true,"message":"Admin access verified","data":{"admin_id":6}}`; teacher login → 401 (bootstrap limitation) |
-| `git log --oneline -12` | 6 commits, single squashed "sync" + "restore audit artifacts" top two |
-| `git ls-files --others --exclude-standard` | (empty) — all files tracked and cleanly ignored as expected |
-| `alembic current` | Not run (no revision row present in this tree) |
-| `npm ls` / `ls node_modules` | Not run — no `node_modules` confirmed present at audit time |
+| `cd frontend && npm run build` | **exit 0** — vite `v6.4.3` production build, `dist/` emitted (407 KB JS / 28 KB CSS) |
+| Runtime `TestClient` role smoke via in-memory SQLite | `GET /api/health` → 200; `GET /api/admin/ping` (no token) → 401; with admin token → 200 `{"success":true,"message":"Admin access verified","data":{"admin_id":6}}`; teacher login → 200 (teacher@skillsprint.com / Demo#Pass123); teacher/dashboard → 200, `total_students: 3`; `add_student` by Student ID → 201 (409 on duplicate); teacher→student list/detail → 200; `teacher->/students/9` → 403 (isolation); `teacher->/admin/ping` → 403; `teacher->/students/profile` → 403; `demo.aarav@demo.skillsprint.dev` login → 200; `student/profile` + `student/dashboard` → 200 |
+| Repo state | `git log --oneline -12`: 6 commits (single squashed "sync" + "restore audit artifacts" at the top); `git ls-files --others --exclude-standard`: empty (all files tracked and cleanly ignored) |
+| `alembic current` | Not run (no migration revision table present in this tree) |
+| `npm ls` / `ls node_modules` | `node_modules/` confirmed present in the checked-out tree |
 
 ## G. VERIFICATION LIMITATIONS (FRIENDLY, NOT A GIMME)
 
@@ -188,9 +188,10 @@ the existing test suite / a `TestClient` smoke script.
 
 | Dimension (out of 100) | Score | Criteria & evidence |
 |---|---|---|
-| Frontend functionality | **52** | TS typecheck clean; route structure + RBAC wiring exist; but docs don't match the tree, no confirmed `vite`/`node_modules` present in this environment, and several feature UI paths are only partially wired to their API. |
-| Backend reliability | **88** | 307/307 tests pass in isolated SQLite fixtures; middleware, auth, and RBAC verified at runtime; production config guards (`JWT_SECRET_KEY`, `CORS_ORIGINS`) enforced at startup; error envelope is consistent and exceptions are handled. Less: no real-DB/migration smoke, no demo seed for all roles, volatile in-process tickets. |
-| Database integrity | **80** | Schema in `alembic/versions/` (5 migrations); unique constraints on `teacher_students` and `xp_transactions` are DB-level anti-idempotency; no `alembic current` record present in this tree, so migration history against a live DB was not verifiable here. |
+| Frontend functionality | **56** | `tsc --noEmit` clean; `npm run build` (vite v6.4.3) clean after this sprint; route structure + RBAC wiring exist. Frontend UI still not visually exercised in a browser, and several feature UI paths are only half-wired to their API.
+| Backend reliability | **88** | 314/314 tests pass (307 baseline + 7 new demo-bootstrap tests); middleware, auth, and RBAC verified at runtime; production config guards (`JWT_SECRET_KEY`, `CORS_ORIGINS`) enforced at startup; error envelope consistent and exceptions handled. Less: no real-DB/migration smoke, volatile in-process tickets. |
+| Database integrity | **80** | Schema in `alembic/versions/` (5 migrations); unique constraints on `teacher_students` and `xp_transactions` are DB-level anti-idempotency; no `alembic current` record present in this tree, so migration history against a live DB was not verifiable here.<br>
+**Demo verification adds:** teacher/dashboard and per-student endpoints verified at runtime against the real `backend/skillsprint.db` (314 tests include the new `TestRoleBootstrapDEMO`); `add_student` returns 201 and idempotent 409; teacher isolation 403 verified; teacher blocked on `/admin/ping` and `/students/profile`. |
 | AI integration | **60** | `AIService` is fail-closed, key stays server-side, no key leaks into responses; but live Verifiable is blocked in CI; usage/token limits are not tracked; ticket store is volatile in-process. |
 | Security | **82** | Passwords hashed with bcrypt; JWT requires `exp`/`sub`; CORS not wildcard in production; no client-supplied XP; teacher data isolation enforced; rate limiting for AI and reset endpoints. Less: no formal penetration test, `CORS_ORIGINS` default is localhost-only (non-issue for dev, missing for multi-origin prod). |
 | Testing quality | **75** | 307 tests, 0 failing, covering auth, feature groups, teacher, config guard, practice, migrations, models, performance, security, admin, account reset, roadmaps, recommendations, integration. Less: tests are SQL/DB focused; no browser/DOM or visual tests; no AI-mock contract tests. |
@@ -212,7 +213,47 @@ are not exercised here.
 ```bash
 # Backend test suite
 cd backend && python -m pytest -q
-#  -> 307 passed, 1 warning, 0 failed (48.9 s)
+#  -> 314 passed, 1 warning, 0 failed (85.5 s)
+
+# Frontend type-check
+cd frontend && npx tsc --noEmit
+#  -> exit 0
+
+# Frontend production build
+cd frontend && npm run build
+#  -> exit 0 (vite v6.4.3, dist/ emitted)
+
+# Demo role smoke (in-memory SQLite)
+cd backend && python - <<'PY'
+from fastapi.testclient import TestClient
+from app.db.session import get_db
+from app.main import app
+
+def ov():
+    try: yield db
+    finally: pass
+app.dependency_overrides[get_db] = ov
+client = TestClient(app)
+
+def lg(email, pwd):
+    return client.post("/api/auth/login", json={"email": email, "password": pwd})
+
+print("health:", client.get("/api/health").json())
+print("admin/ping no token:", client.get("/api/admin/ping").status_code)
+t = lg("admin@skillsprint.com", "ChangeMe!123").json()["data"]["access_token"]
+print("admin/ping admin:", client.get("/api/admin/ping", headers={"Authorization": f"Bearer {t}"}).status_code)
+print("teacher login (teacher@skillsprint.com):", lg("teacher@skillsprint.com", "Demo#Pass123").status_code)
+t2 = lg("teacher@skillsprint.com", "Demo#Pass123").json()["data"]["access_token"]
+print("teacher/dashboard:", client.get("/api/teachers/dashboard", headers={"Authorization": f"Bearer {t2}"}).status_code)
+print("teacher/dashboard total_students:", client.get("/api/teachers/dashboard", headers={"Authorization": f"Bearer {t2}"}).json()["data"]["total_students"])
+print("teacher->/admin/ping (403):", client.get("/api/admin/ping", headers={"Authorization": f"Bearer {t2}"}).status_code)
+print("teacher->/students/profile (403):", client.get("/api/students/profile", headers={"Authorization": f"Bearer {t2}"}).status_code)
+print("student login (demo.aarav@demo.skillsprint.dev):", lg("demo.aarav@demo.skillsprint.dev", "Demo#Pass123").status_code)
+st = lg("demo.aarav@demo.skillsprint.dev", "Demo#Pass123").json()["data"]["access_token"]
+print("student/profile:", client.get("/api/students/profile", headers={"Authorization": f"Bearer {st}"}).status_code)
+print("student/dashboard:", client.get("/api/students/dashboard", headers={"Authorization": f"Bearer {st}"}).status_code)
+PY
+#  -> health 200, admin/ping no token 401, admin/ping admin 200, teacher login 200, teacher/dashboard 200 total_students 3, teacher->/admin/ping 403, teacher->/students/profile 403, student login 200, student/profile 200, student/dashboard 200
 
 # Frontend type-check
 cd frontend && npx tsc --noEmit
@@ -287,7 +328,7 @@ git ls-files --others --exclude-standard   # (empty)
 
 ## L. CLOSING STATEMENT
 
-Verified facts (307/307 backend tests, `tsc` clean, health/RBAC smoke, schema and
+Verified facts (314/314 backend tests, frontend `tsc` clean, frontend production build, health/RBAC smoke, schema and
 auth wiring, deterministic engines) are recorded with file/line references. What
 is **UNABLE TO VERIFY** (live Gemini, real-DB migration smoke, frontend UI run,
 deploy) is explicitly marked, and no fabricated numbers, screenshots, or API
