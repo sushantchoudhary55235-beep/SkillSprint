@@ -128,3 +128,125 @@ class TestRemoval:
         # and dashboard no longer counts them
         data = client.get("/api/teachers/dashboard", headers=_auth(t)).json()["data"]
         assert data["total_students"] == 0
+
+
+class TestRoleBootstrapDEMO:
+    """Demo bootstrap: teacher + seeded students share the EmailStr-accepted
+    demo domain. A fresh development DB boots all three roles, the teacher
+    sees exactly its associated students, and every non-teacher route stays
+    blocked.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _demo_teachers(self, client, db):
+        from app.core.security import hash_password
+        from app.models.content import TeacherStudent
+        from app.models.profile import TeacherProfile
+        from app.models.user import User
+
+        teacher = User(
+            name="Demo Teacher",
+            email="demo.teacher@demo.skillsprint.dev",
+            password_hash=hash_password("Demo#Pass123"),
+            role="teacher",
+        )
+        db.add(teacher)
+        db.flush()
+        tprof = TeacherProfile(department="Demo Department")
+        teacher.teacher_profile = tprof
+        db.commit()
+        self.demo_teacher = teacher
+        self.demo_profile = tprof
+
+        for i, name in enumerate(["Demo Aarav", "Demo Meera", "Demo Rohan"], start=1):
+            user = User(
+                name=name,
+                email=f"demo.{name.split()[-1].lower()}@demo.skillsprint.dev",
+                password_hash=hash_password("Demo#Pass123"),
+                role="student",
+            )
+            db.add(user)
+            db.flush()
+            from app.models.profile import StudentProfile as SP
+            sp = SP(
+                student_id=f"SSDEMO{i:04d}",
+                readiness_score=0,
+                xp=0,
+                level=1,
+                current_streak=0,
+                longest_streak=0,
+            )
+            user.student_profile = sp
+            db.flush()
+
+        t = self.demo_teacher
+        for i in range(1, 4):
+            sp = db.query(SP).filter_by(student_id=f"SSDEMO{i:04d}").first()
+            if db.query(TeacherStudent).filter_by(teacher_id=t.id, student_id=sp.id).first() is None:
+                db.add(TeacherStudent(teacher_id=t.id, student_id=sp.id, status="ACTIVE"))
+        db.commit()
+
+    def test_demo_teacher_login(self, client):
+        resp = client.post(
+            "/api/auth/login",
+            json={"email": "demo.teacher@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()["data"]
+        assert data["user"]["role"] == "teacher"
+
+    def test_demo_teacher_sees_only_associated_students(self, client):
+        token = client.post(
+            "/api/auth/login",
+            json={"email": "demo.teacher@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        ).json()["data"]["access_token"]
+        resp = client.get("/api/teachers/dashboard",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["total_students"] == 3
+
+    def test_demo_student_login_with_documented_password(self, client):
+        resp = client.post(
+            "/api/auth/login",
+            json={"email": "demo.aarav@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()["data"]
+        assert data["user"]["role"] == "student"
+
+    def test_demo_student_profile_accessible_to_student_only(self, client, db):
+        token = client.post(
+            "/api/auth/login",
+            json={"email": "demo.teacher@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        ).json()["data"]["access_token"]
+        resp = client.get("/api/students/profile",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
+    def test_demo_student_login_blocked_for_teacher(self, client):
+        token = client.post(
+            "/api/auth/login",
+            json={"email": "demo.teacher@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        ).json()["data"]["access_token"]
+        resp = client.get("/api/students/profile",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
+    def test_demo_teacher_has_no_admin_access(self, client):
+        token = client.post(
+            "/api/auth/login",
+            json={"email": "demo.teacher@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        ).json()["data"]["access_token"]
+        resp = client.get("/api/admin/ping",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+
+    def test_demo_student_login_blocked_for_teacher_with_student_route(self, client):
+        token = client.post(
+            "/api/auth/login",
+            json={"email": "demo.teacher@demo.skillsprint.dev", "password": "Demo#Pass123"},
+        ).json()["data"]["access_token"]
+        resp = client.get("/api/students/dashboard",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403

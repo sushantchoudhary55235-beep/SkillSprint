@@ -52,7 +52,6 @@ pip-delete-this-directory.txt
 Thumbs.db
 
 # Generated backend artifacts
-backend/alembic/versions/*.py
 backend/locustfile.py
 backend/Procfile
 backend/start.sh

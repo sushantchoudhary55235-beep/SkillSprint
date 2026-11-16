@@ -11,7 +11,7 @@ Properties (per the master prompt's demo-mode rules):
   (a repeating correct/incorrect sequence), fixed dates relative to today.
 - IDEMPOTENT: every step checks for existing rows first; re-running updates
   nothing and duplicates nothing (safe to run on every demo refresh).
-- ISOLATED: all demo users share the email domain ``@demo.skillsprint.test``
+- ISOLATED: all demo users share the email domain ``@demo.skillsprint.dev``
   and demo questions carry source_type="DEMO", so production data can be
   told apart (and demo users deactivated/deleted) independently.
 - NO REAL CREDENTIALS: demo passwords are publicly documented placeholders.
@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.core.security import hash_password  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 
-DEMO_DOMAIN = "@demo.skillsprint.test"
+DEMO_DOMAIN = "@demo.skillsprint.dev"
 DEMO_PASSWORD = "Demo#Pass123"
 
 NUM_TOPICS = [
@@ -56,6 +56,8 @@ def _user(db, name, role, password=DEMO_PASSWORD, extra_profile=None):
     """Get-or-create a demo user. Returns (user, profile, created)."""
     from app.models.user import User
 
+    # EmailStr / pydantic require a domain that is neither a reserved TLD (e.g. .test)
+    # nor a global undeliverable domain; @demo.skillsprint.dev satisfies both.
     email = name.lower().replace(" ", ".") + DEMO_DOMAIN
     existing = db.query(User).filter_by(email=email).first()
     if existing is not None:
@@ -276,9 +278,9 @@ def seed_demo() -> None:
             sync_profile_readiness(db, profile)
         db.commit()
 
-        print("  + demo admin:      admin" + DEMO_DOMAIN)
-        print("  + demo teacher:    teacher" + DEMO_DOMAIN)
-        print("  + demo students:   aarav/meera/rohan" + DEMO_DOMAIN)
+        print("  + demo admin:      demo.admin" + DEMO_DOMAIN)
+        print("  + demo teacher:    demo.teacher" + DEMO_DOMAIN)
+        print("  + demo students:   demo.aarav/demo.meera/demo.rohan" + DEMO_DOMAIN)
         print(f"  + demo password:   {DEMO_PASSWORD}  (public placeholder — never reuse)")
         print("Demo seed complete.")
     finally:

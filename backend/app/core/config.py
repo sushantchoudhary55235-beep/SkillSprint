@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     # Rate limiting for AI (Gemini) endpoints: requests per user per minute
     AI_RATE_LIMIT_PER_MINUTE: int = 10
 
+    # General API rate limiting: requests per user per minute (production only)
+    GENERAL_RATE_LIMIT_PER_MINUTE: int = 100
+
+    # Admin seeding (python -m app.seed)
+    # Defaults: admin@skillsprint.com / ChangeMe!123 — ALWAYS override in production.
+    ADMIN_SEED_EMAIL: str = "admin@skillsprint.com"
+    ADMIN_SEED_PASSWORD: str = "ChangeMe!123"
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

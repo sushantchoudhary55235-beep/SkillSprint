@@ -1,5 +1,3 @@
-# README.md
-
 # SkillSprint
 
 **Gamified, AI-powered placement-readiness and personalized learning platform.**
@@ -74,6 +72,7 @@ SkillSprint/
 │   ├── tests/           pytest suite using isolated in-memory SQLite fixtures
 │   └── .env.example     environment variable template
 └── README.md
+```
 
 ## Current limitations
 
@@ -87,14 +86,6 @@ SkillSprint/
 Backend API docs are available at runtime at `/docs` when the server is running in non-production mode.
 
 Design-time API documentation lives in `docs/API_Specification.md` (when present).
-
-Other design docs:
-- `docs/PRD.md`
-- `docs/Database_design_docs.md`
-- `docs/Phases.md`
-- `docs/UX_UserFlow.md`
-- `docs/DEPLOYMENT.md`
-- `docs/System_Overview.md`
 
 Other design docs:
 - `docs/PRD.md`
@@ -121,7 +112,7 @@ Before any production deployment:
 
 Development follows `docs/Phases.md`. Current status is tracked in that document; Phase 16 (deployment & final release) is the remaining milestone.
 
-## Local setup prerequisites (SETUP)
+## Local setup prerequisites
 
 ```bash
 # Backend (Python)
@@ -136,47 +127,21 @@ cd frontend
 npm install
 ```
 
-Do **not** commit `.env`, local databases (`skillsprint.db`), `node_modules/`, `__pycache__/`, or test artifacts. |
+Do **not** commit `.env`, local databases (`skillsprint.db`), `node_modules/`, `__pycache__/`, or test artifacts.
 
+Prerequisites:
 - Node.js with npm (frontend)
 - Python 3 + pip (backend)
 - Git
 
-Do **not** commit `.env`, local databases, `node_modules/`, `__pycache__/`, or test artifacts.
-
-## Frontend startup (FRONTEND)
+## Frontend startup
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-App: `http://localhost:5173` — Vite proxies `/api` to the FastAPI backend at `http://localhost:8000`. |
-
-```bash
-cd frontend
-npm run build        # tsc -b && vite build
-npm run lint
-```
-|
-
-TypeScript type-checking can also be run directly:
-
-```bash
-cd frontend
-npx tsc --noEmit
-```
-|
-
-The production build was verified against this tree during the audit (exit 0, `dist/` emitted). |
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-App: `http://localhost:5173` — Vite proxies `/api` to the backend.
+App: `http://localhost:5173` — Vite proxies `/api` to the FastAPI backend at `http://localhost:8000`.
 
 Available frontend scripts:
 - `npm run dev` — start Vite dev server
@@ -184,7 +149,13 @@ Available frontend scripts:
 - `npm run lint` — run ESLint
 - `npm run preview` — preview production build locally
 
-## Backend startup (BACKEND)
+TypeScript type-checking can also be run directly:
+```bash
+cd frontend
+npx tsc --noEmit
+```
+
+## Backend startup
 
 ```bash
 cd backend
@@ -192,49 +163,20 @@ python -m app.main
 ```
 
 API docs: `http://localhost:8000/docs` (non-production mode)
-Health endpoint: `http://localhost:8000/api/health` |
+Health endpoint: `http://localhost:8000/api/health`
 
-Backend entrypoint: `python -m app.main` (FastAPI app lives in `backend/app/main.py`). |
-
+If you are using the provided virtualenv already present in the repo, activate it instead of creating a new one:
 ```bash
 cd backend
 python -m venv .venv
 .venv/Scripts/activate            # Windows
-# source .venv/Scripts/activate   # bash
+# source .venv/bin/activate       # bash
 pip install -r requirements.txt
 cp .env.example .env              # edit .env before use
 python -m app.main
 ```
 
-If you are using the provided virtualenv already present in the repo, activate it instead of creating a new one.
-
-Backend entrypoint: `python -m app.main` (FastAPI app lives in `backend/app/main.py`).
-
-API docs: `http://localhost:8000/docs` when the server is running in non-production mode.
-Health endpoint: `http://localhost:8000/api/health`
-
-## Environment variables (ENVIRONMENT)
-
-Copy `backend/.env.example` to `backend/.env` and adjust the values. The example already contains placeholders. Key variables:
-
-- `DATABASE_URL` — e.g. `sqlite:///./skillsprint.db` for local dev, or a PostgreSQL URL for production
-- `JWT_SECRET_KEY` — **must be changed** from the placeholder in any real environment
-- `JWT_ALGORITHM` — default `HS256`
-- `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` — default `60`
-- `BCRYPT_ROUNDS` — password hashing cost; production default `12`
-- `CORS_ORIGINS` — comma-separated allowed origins; default `http://localhost:5173,http://localhost:3000`
-- `GEMINI_API_KEY` — Gemini API key; leave empty only if you do not need AI features
-- `AI_RATE_LIMIT_PER_MINUTE` — AI request budget per user per minute; default `10`
-- `CODE_EXECUTOR_URL` — in production, URL of an isolated code-execution sidecar; unset means the local development executor
-- `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — admin seed defaults; change immediately after first run in any non-local environment
-- `ENVIRONMENT` — e.g. `development` or `production`
-- `LOG_LEVEL` — e.g. `INFO` |
-
-### Important security defaults
-
-- `JWT_SECRET_KEY` defaults to `change-me-to-a-long-random-secret` and **must be overridden** outside local development.
-- `CORS_ORIGINS` defaults to localhost origins only; a wildcard (`*`) is not the default and is refused at startup in production.
-- `GEMINI_API_KEY` defaults to empty; AI endpoints can return `503` when it is missing. |
+## Environment variables
 
 Copy `backend/.env.example` to `backend/.env` and adjust the values. The example already contains placeholders. Key variables:
 
@@ -258,41 +200,37 @@ Copy `backend/.env.example` to `backend/.env` and adjust the values. The example
 - `GEMINI_API_KEY` defaults to empty; AI endpoints can return `503` when it is missing.
 - `CODE_EXECUTOR_URL` defaults to empty, which falls back to the local development executor (not a sandbox).
 
-## Database and migrations (MIGRATIONS)
+## Database and migrations
 
-The backend uses SQLAlchemy with Alembic. The project ships 5 migration revisions under `backend/alembic/versions/` that take the schema from the initial `fb9deee76814` revision through `d5e91b7f3a44` (practice tables) via `c3d84e6a9b12` (bookmarks) -> `b7c21d9e4f10` (gamification integrity) -> `a1f29c4d7e03` (AI answer logs). Run them in order:
+The backend uses SQLAlchemy with Alembic. The project ships 5 migration revisions under `backend/alembic/versions/` that take the schema from the initial `fb9deee76814` revision through `d5e91b7f3a44` (practice tables) via `c3d84e6a9b12` (bookmarks) -> `b7c21d9e4f10` (gamification integrity) -> `a1f29c4d7e03` (AI answer logs).
 
 ```bash
 cd backend
 alembic upgrade head
 ```
-
-Pending revision (`fb9deee76814` = create initial schema) is not applied by this README; run it manually when appropriate for your environment. Do not run migrations against a database you cannot recreate. The local default database file is gitignored. |
-
-The backend uses SQLAlchemy with Alembic for schema migrations.
 
 Development/test default: SQLite at `backend/skillsprint.db` via `DATABASE_URL=sqlite:///./skillsprint.db`.
 
 Production target: PostgreSQL.
 
-To apply migrations:
-
-```bash
-cd backend
-alembic upgrade head
-```
-
-This repository contains migration files under `backend/alembic/versions/`. Migrations are **not** executed automatically by this README; run them manually when appropriate for your environment.
-
 Do not run migrations against a database you cannot recreate. The local default database file is gitignored.
 
-## Demo / seed data (DEMO SEEDING)
+## Demo / seed data
 
 The backend provides two scripts for local demonstration and testing. **These scripts are not run automatically by this README.**
 
-### Development-only demo seed
+### Production seed (`seed.py`)
 
-`backend/app/seed_demo.py` creates a deterministic, idempotent demo dataset with a documented placeholder password:
+Creates admin user (from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` env, defaults to `admin@skillsprint.com` / `ChangeMe!123`), core topics, companies, badges, and missions.
+
+```bash
+cd backend
+python -m app.seed
+```
+
+### Development-only demo seed (`seed_demo.py`)
+
+Creates a deterministic, idempotent demo dataset with a documented placeholder password:
 
 ```bash
 cd backend
@@ -300,21 +238,15 @@ python -m app.seed_demo
 ```
 
 Demo accounts (password: `Demo#Pass123` — public placeholder, never reuse):
-- `admin@skillsprint.com` (admin; also created by `seed.py` + `ADMIN_SEED_*` env)
-- `teacher@skillsprint.com` (teacher) — login: `teacher@skillsprint.com` / `Demo#Pass123`
-- `demo.aarav@demo.skillsprint.dev`, `demo.meera@demo.skillsprint.dev`, `demo.rohan@demo.skillsprint.dev` (students, 3 seeded links)
+- `demo.admin@demo.skillsprint.dev` (admin)
+- `demo.teacher@demo.skillsprint.dev` (teacher)
+- `demo.aarav@demo.skillsprint.dev`, `demo.meera@demo.skillsprint.dev`, `demo.rohan@demo.skillsprint.dev` (students, 3 seeded teacher-student links)
 
 All demo users share the email domain `@demo.skillsprint.dev`, which is accepted by the backend's `EmailStr` validation (the originally documented `@demo.skillsprint.test` is a reserved TLD and is rejected by pydantic `EmailStr` / `email-validator` 2.2.0, so the seed was corrected to `.dev`). No real credentials are used, and demo questions/coding problems carry `source_type="DEMO"` so production data can be distinguished and demo users can be deactivated/deleted independently.
 
-Demo seeding runs idempotently: re-running creates nothing new. It never overwrites existing accounts or passwords. |
+Demo seeding runs idempotently: re-running creates nothing new. It never overwrites existing accounts or passwords.
 
-The backend includes seed scripts:
-- `backend/app/seed.py`
-- `backend/app/seed_demo.py`
-
-These are available for local demonstration and testing. They are **not** run automatically by this README. Review them before using them against any database that is not disposable.
-
-## Testing (TESTS)
+## Testing
 
 ### Frontend
 
@@ -341,58 +273,16 @@ This project's verified test subset in the current working tree:
 - `tests/test_feature_groups.py`
 - `tests/test_teachers.py`
 - `tests/test_config_guard.py`
-- `tests/test_practice.py` |
-
-```bash
-cd backend
-python -m pytest -q
-```
-
-A full backend run is practical here because the suite uses in-memory fixtures. Current full-suite result: **314 passed, 1 warning, 0 failed** |
-
-### Frontend
-
-```bash
-cd frontend
-npm run build        # also runs tsc -b
-npm run lint
-```
-
-TypeScript type-checking can also be run directly:
-
-```bash
-cd frontend
-npx tsc --noEmit
-```
-
-### Backend
-
-The backend test suite uses isolated in-memory SQLite fixtures and does not depend on a persistent database.
-
-#### Focused runs
-
-```bash
-cd backend
-python -m pytest -q tests/test_auth.py tests/test_feature_groups.py tests/test_teachers.py tests/test_config_guard.py tests/test_practice.py
-```
-
-This project's verified test subset in the current working tree:
-- `tests/test_auth.py`
-- `tests/test_feature_groups.py`
-- `tests/test_teachers.py`
-- `tests/test_config_guard.py`
 - `tests/test_practice.py`
 
 #### Full suite
 
-A full backend run is practical here because the suite uses in-memory fixtures:
+A full backend run is practical here because the suite uses in-memory fixtures. Current full-suite result: **327 passed, 2 warnings, 0 failed**
 
 ```bash
 cd backend
 python -m pytest -q
 ```
-
-If any test cannot run because dependencies or environment are missing, report that instead of faking a pass.
 
 Test files present in the current backend tree:
 - `tests/test_account_reset.py`
@@ -416,3 +306,5 @@ Test files present in the current backend tree:
 - `tests/test_roadmap.py`
 - `tests/test_security.py`
 - `tests/test_teachers.py`
+
+If any test cannot run because dependencies or environment are missing, report that instead of faking a pass.

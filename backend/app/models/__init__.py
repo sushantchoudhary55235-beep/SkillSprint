@@ -21,6 +21,7 @@ from app.models.activity import ActivityEvent
 from app.models.practice import PracticeAnswer, PracticeSession
 from app.models.ai_answer_log import AIAnswerLog
 from app.models.bookmark import Bookmark
+from app.models.audit import ResetAuditLog
 
 __all__ = [
     "Base",
@@ -57,4 +58,5 @@ __all__ = [
     "PracticeAnswer",
     "AIAnswerLog",
     "Bookmark",
+    "ResetAuditLog",
 ]

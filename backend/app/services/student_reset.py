@@ -16,11 +16,13 @@ Non-negotiable rules:
 - One atomic transaction: everything is deleted or nothing is.
 - Admins are out of scope: only students have learning data to reset.
 - Every execution is logged WITHOUT any credential material.
+- Audit records survive the reset (separate table, separate transaction).
 """
 from __future__ import annotations
 
 import logging
 import time
+import uuid
 from collections import defaultdict, deque
 from threading import Lock
 
@@ -33,6 +35,7 @@ from app.core.security import verify_password
 from app.models.activity import ActivityEvent
 from app.models.ai_answer_log import AIAnswerLog
 from app.models.assessment import Answer, Attempt
+from app.models.audit import ResetAuditLog
 from app.models.bookmark import Bookmark
 from app.models.coding import CodeSubmission
 from app.models.gamification import StudentBadge, XPTransaction
@@ -141,39 +144,129 @@ class StudentResetService:
         password: str,
         confirmation: str,
     ) -> dict:
-        """Wipe all learning data atomically. Returns per-table row counts."""
-        # -- gates -------------------------------------------------------
-        # Exact, case-sensitive match — the friction IS the feature (GitHub
-        # pattern). "reset my data" must be rejected like any other phrase.
-        if confirmation != CONFIRMATION_PHRASE:
-            raise ValidationError(f'Type "{CONFIRMATION_PHRASE}" exactly to confirm.')
-        _enforce_reset_rate_limit(user.id)
-        if not verify_password(password, user.password_hash):
-            logger.warning("Danger Zone reset failed auth check (user_id=%s)", user.id)
-            raise AuthError("Password is incorrect")
-        if user.role != "student":  # defence in depth behind require_student
-            raise ValidationError("Only student accounts can reset learning data.")
+        """Wipe all learning data atomically. Returns per-table row counts with before/after verification.
+
+        Atomicity guarantees:
+        - Successful reset + SUCCESS audit record are committed in ONE transaction.
+        - Failed reset is rolled back first, then FAILED audit is recorded in a separate transaction.
+        - Audit persistence failures are propagated (not silently swallowed).
+        """
+        # -- generate request ID for correlation (early, for all paths) -----
+        request_id = str(uuid.uuid4())
 
         # -- resolve live objects in THIS session ------------------------
-        # Fixture sessions reuse identity maps across requests; a stale
-        # StudentProfile instance would make deletes/updates no-op silently.
         live_user = self.db.get(User, user.id)
         live_student = self.db.get(StudentProfile, student.id)
         if live_user is None or live_student is None:
+            # Record FAILED audit for account not found
+            self._record_audit(
+                student_id=student.id,
+                status="FAILED",
+                rows_deleted={},
+                failure_reason="Account could not be loaded for reset.",
+                request_id=request_id,
+            )
             raise ValidationError("Account could not be loaded for reset.")
         sid = live_student.id
 
-        # -- atomic wipe ---------------------------------------------------
+        # -- gates with FAILED audit on failure ---------------------------
+        if confirmation != CONFIRMATION_PHRASE:
+            self._record_audit(
+                student_id=sid,
+                status="FAILED",
+                rows_deleted={},
+                failure_reason=f'Invalid confirmation phrase. Expected "{CONFIRMATION_PHRASE}".',
+                request_id=request_id,
+            )
+            raise ValidationError(f'Type "{CONFIRMATION_PHRASE}" exactly to confirm.')
+
         try:
-            counts = self._delete_all(sid)
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            logger.error("Danger Zone reset failed and was rolled back (user_id=%s)", user.id)
+            _enforce_reset_rate_limit(live_user.id)
+        except RateLimitExceededError as e:
+            self._record_audit(
+                student_id=sid,
+                status="FAILED",
+                rows_deleted={},
+                failure_reason="Rate limit exceeded: 3 attempts per 10 minutes.",
+                request_id=request_id,
+            )
             raise
 
-        logger.info("Danger Zone reset completed (user_id=%s student_id=%s)", user.id, sid)
-        return {"reset": True, "rows_deleted": counts}
+        if not verify_password(password, live_user.password_hash):
+            logger.warning("Danger Zone reset failed auth check (user_id=%s)", live_user.id)
+            self._record_audit(
+                student_id=sid,
+                status="FAILED",
+                rows_deleted={},
+                failure_reason="Password is incorrect",
+                request_id=request_id,
+            )
+            raise AuthError("Password is incorrect")
+
+        if live_user.role != "student":
+            self._record_audit(
+                student_id=sid,
+                status="FAILED",
+                rows_deleted={},
+                failure_reason="Only student accounts can reset learning data.",
+                request_id=request_id,
+            )
+            raise ValidationError("Only student accounts can reset learning data.")
+
+        # -- capture before counts ---------------------------------------
+        before_counts = self.preview(live_student)
+
+        # -- atomic wipe + SUCCESS audit in SAME transaction -------------
+        try:
+            deleted_counts = self._delete_all(sid)
+
+            # Add SUCCESS audit to the SAME session so it commits atomically with the reset.
+            # The reset_audit_logs table is NOT wiped by the reset (unlike activity_events),
+            # so this is safe and ensures atomicity.
+            audit = ResetAuditLog(
+                student_id=sid,
+                status="SUCCESS",
+                rows_deleted=deleted_counts,
+                failure_reason=None,
+                request_id=request_id,
+            )
+            self.db.add(audit)
+            self.db.commit()
+
+        except Exception as e:
+            # Reset failed - rollback the reset transaction
+            self.db.rollback()
+
+            # Record FAILED audit in a FRESH transaction (separate from the rolled-back reset)
+            # This must succeed independently; if it fails, we log but don't mask the reset failure.
+            try:
+                self._record_audit(
+                    student_id=sid,
+                    status="FAILED",
+                    rows_deleted={},
+                    failure_reason=str(e),
+                    request_id=request_id,
+                )
+            except Exception as audit_err:
+                # Audit persistence failure during failure handling - log clearly
+                logger.critical(
+                    "BOTH reset AND audit recording failed (student_id=%s). Reset error: %s; Audit error: %s",
+                    sid, e, audit_err
+                )
+
+            logger.error("Danger Zone reset failed and was rolled back (user_id=%s): %s", live_user.id, e)
+            raise
+
+        # -- compute after counts (should be zero for deleted tables) ---
+        after_counts = self.preview(live_student)
+
+        logger.info("Danger Zone reset completed (user_id=%s student_id=%s)", live_user.id, sid)
+        return {
+            "reset": True,
+            "rows_deleted": deleted_counts,
+            "before_counts": before_counts,
+            "after_counts": after_counts,
+        }
 
     # ------------------------------------------------------------------ internals
 
@@ -231,3 +324,26 @@ class StudentResetService:
         # One visible trace of the action in the (otherwise wiped) feed.
         self.db.add(ActivityEvent(student_id=sid, event_type="DATA_RESET"))
         return counts
+
+    def _record_audit(
+        self,
+        student_id: int,
+        status: str,
+        rows_deleted: dict,
+        failure_reason: str | None,
+        request_id: str,
+    ) -> None:
+        """Record audit event in a separate transaction for FAILED resets.
+
+        This method is called AFTER a rollback, so it uses a fresh transaction.
+        Raises on failure so caller can handle audit persistence errors.
+        """
+        audit = ResetAuditLog(
+            student_id=student_id,
+            status=status,
+            rows_deleted=rows_deleted,
+            failure_reason=failure_reason,
+            request_id=request_id,
+        )
+        self.db.add(audit)
+        self.db.commit()

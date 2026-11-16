@@ -204,7 +204,7 @@ class TeacherService:
                 reasons.append("LOW_ACCURACY")
 
             topics = self.student_detail(profile, self.db.get(User, profile.user_id))["topics"]
-            if any(t.trend == "DECLINING" for t in topics):
+            if any(t.get("trend") == "DECLINING" for t in topics):
                 reasons.append("DECLINING")
 
             last_activity = self.db.scalar(

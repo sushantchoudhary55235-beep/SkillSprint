@@ -10,7 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.routes import api_router
 from app.core.config import settings
 from app.core.exceptions import SkillSprintError
-from app.core.rate_limit import RateLimitExceededError
+from app.core.rate_limit import RateLimitExceededError, get_general_limiter
 
 logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger("skillsprint")
@@ -61,6 +61,35 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# ------------------------------------------------------------------ general rate limiting (production only)
+_general_limiter = get_general_limiter()
+
+if _general_limiter is not None:
+    @app.middleware("http")
+    async def general_rate_limit_middleware(request: Request, call_next):
+        # Skip rate limiting for health checks, docs, and AI endpoints (which have their own limiter)
+        path = request.url.path
+        if (path.startswith("/api/health") or 
+            path.startswith("/api/ai") or
+            path in ("/docs", "/openapi.json", "/redoc")):
+            return await call_next(request)
+
+        # Get user ID from auth header if present
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                from app.core.security import decode_access_token
+                token = auth_header.split(" ", 1)[1]
+                payload = decode_access_token(token)
+                user_id = int(payload.get("sub", 0))
+                if user_id > 0:
+                    _general_limiter.check(user_id)
+            except Exception:
+                # Invalid token - let the auth dependency handle it
+                pass
+
+        return await call_next(request)
 
 app.include_router(api_router, prefix="/api")
 
